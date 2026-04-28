@@ -525,7 +525,7 @@ export default function UsersPage() {
           
           {/* List Parameters */}
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div className="card-header" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="card-header" style={{ borderBottom: '1px solid var(--border)', padding: '1.5rem 1.5rem 1.25rem 1.5rem', margin: 0 }}>
               <h2 className="card-title">Opções Cadastradas</h2>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
