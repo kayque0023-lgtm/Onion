@@ -40,6 +40,7 @@ async function seed() {
   
   saveDb();
   console.log(`Migracao concluida. Adicionados ${added} parametros.`);
+  process.exit(0);
 }
 
 seed().catch(console.error);
