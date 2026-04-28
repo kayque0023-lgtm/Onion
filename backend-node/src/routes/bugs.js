@@ -65,6 +65,9 @@ router.post('/', [
       VALUES (?, ?, ?, ?, ?)
     `, [project_id, sprint_id, serial_number, description, evidence_url || null]);
 
+    // Update the sprint status to bug
+    runSql('UPDATE sprints SET status = ? WHERE id = ?', ['bug', sprint_id]);
+
     const newBug = queryOne(`
       SELECT b.*, p.name as project_name, s.name as sprint_name 
       FROM bugs b 

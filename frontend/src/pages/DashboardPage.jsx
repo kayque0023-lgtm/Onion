@@ -90,14 +90,14 @@ export default function DashboardPage() {
       backgroundColor: [
         'rgba(34, 197, 94, 0.8)', // Green
         'rgba(239, 68, 68, 0.8)',  // Red
-        'rgba(234, 179, 8, 0.8)',  // Yellow
+        'rgba(139, 92, 246, 0.8)',  // Purple
         'rgba(107, 114, 128, 0.8)', // Grey (Bugs)
         'rgba(245, 158, 11, 0.8)', // Orange
       ],
       borderColor: [
         '#22C55E',
         '#EF4444',
-        '#EAB308',
+        '#8B5CF6',
         '#6B7280',
         '#F59E0B',
       ],
@@ -151,7 +151,7 @@ export default function DashboardPage() {
       backgroundColor: [
         'rgba(34, 197, 94, 0.8)',
         'rgba(239, 68, 68, 0.8)', 
-        'rgba(234, 179, 8, 0.8)', 
+        'rgba(139, 92, 246, 0.8)', 
         'rgba(107, 114, 128, 0.8)',  
         'rgba(245, 158, 11, 0.8)'
       ],
@@ -315,48 +315,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="dashboard-grid">
-        {/* Recent Activity */}
-        <div className="card">
-          <div className="card-header">
-            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MessageSquare size={18} style={{ color: 'var(--accent)' }} />
-              Atividades Recentes
-            </h2>
-          </div>
-          {recentComments.length > 0 ? (
-            <div className="activity-feed">
-              {recentComments.map(comment => (
-                <div key={comment.id} className="activity-item">
-                  <div className="activity-avatar">
-                    {comment.user_name?.charAt(0)?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="activity-content">
-                    <div className="activity-header">
-                      <div>
-                        <span className="activity-user">{comment.user_name}</span>
-                        {comment.project_name && (
-                          <span className="activity-project" style={{ marginLeft: '0.5rem' }}>
-                            {comment.project_name}
-                          </span>
-                        )}
-                      </div>
-                      <span className="activity-time">{formatDate(comment.created_at)}</span>
-                    </div>
-                    <p className="activity-text">{comment.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <MessageSquare size={48} style={{ color: 'var(--text-muted)', marginBottom: '1rem', opacity: 0.4 }} />
-              <p className="empty-state-title">Nenhuma atividade recente</p>
-              <p className="empty-state-text">Comentários dos seus projetos aparecerão aqui</p>
-            </div>
-          )}
-        </div>
-
+      <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
         {/* Recent Projects Selection */}
         <div className="card">
           <div className="card-header">
@@ -399,6 +358,47 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+        <div className="card-header">
+          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <MessageSquare size={18} style={{ color: 'var(--accent)' }} />
+            Atividades Recentes
+          </h2>
+        </div>
+        {recentComments.length > 0 ? (
+          <div className="activity-feed">
+            {recentComments.map(comment => (
+              <div key={comment.id} className="activity-item">
+                <div className="activity-avatar">
+                  {comment.user_name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="activity-content">
+                  <div className="activity-header">
+                    <div>
+                      <span className="activity-user">{comment.user_name}</span>
+                      {comment.project_name && (
+                        <span className="activity-project" style={{ marginLeft: '0.5rem' }}>
+                          {comment.project_name}
+                        </span>
+                      )}
+                    </div>
+                    <span className="activity-time">{formatDate(comment.created_at)}</span>
+                  </div>
+                  <p className="activity-text">{comment.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <MessageSquare size={48} style={{ color: 'var(--text-muted)', marginBottom: '1rem', opacity: 0.4 }} />
+            <p className="empty-state-title">Nenhuma atividade recente</p>
+            <p className="empty-state-text">Comentários dos seus projetos aparecerão aqui</p>
+          </div>
+        )}
       </div>
     </div>
   );

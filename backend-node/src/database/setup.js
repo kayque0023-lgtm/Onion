@@ -46,6 +46,7 @@ async function initializeDatabase() {
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'viewer',
       avatar_url TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -86,6 +87,7 @@ async function initializeDatabase() {
       description TEXT NOT NULL,
       expected_result TEXT,
       actual_result TEXT,
+      image_path TEXT,
       status TEXT DEFAULT 'pending',
       order_index INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -115,11 +117,39 @@ async function initializeDatabase() {
     )
   `);
 
-  // Add status column to bugs if it doesn't exist (migration)
-  try {
-    database.run('ALTER TABLE bugs ADD COLUMN status TEXT DEFAULT "pending"');
-  } catch (e) {
-    // Column already exists or table doesn't exist yet
+  database.run(`
+    CREATE TABLE IF NOT EXISTS permission_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      justification TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      rejection_reason TEXT,
+      reviewed_by INTEGER REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME
+    )
+  `);
+
+  database.run(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      actor_id INTEGER REFERENCES users(id),
+      target_id INTEGER REFERENCES users(id),
+      old_role TEXT,
+      new_role TEXT,
+      action TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Migrations — add columns if they don't exist yet
+  const migrations = [
+    'ALTER TABLE bugs ADD COLUMN status TEXT DEFAULT "pending"',
+    'ALTER TABLE steps ADD COLUMN image_path TEXT',
+    'ALTER TABLE users ADD COLUMN role TEXT DEFAULT "viewer"',
+  ];
+  for (const sql of migrations) {
+    try { database.run(sql); } catch (e) { /* already exists */ }
   }
 
   saveDb();

@@ -21,6 +21,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import mimetypes
+
+mimetypes.add_type("application/pdf", ".pdf")
+mimetypes.add_type("image/png", ".png")
+mimetypes.add_type("image/jpeg", ".jpg")
+mimetypes.add_type("image/jpeg", ".jpeg")
+mimetypes.add_type("image/gif", ".gif")
+
 # Mount uploads directory
 uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(uploads_dir, exist_ok=True)

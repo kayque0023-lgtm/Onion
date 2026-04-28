@@ -71,7 +71,9 @@ router.get('/:id', (req, res) => {
       ORDER BY c.created_at DESC LIMIT 20
     `, [project.id]);
 
-    res.json({ project, sprints, comments });
+    const bugs = queryAll('SELECT * FROM bugs WHERE project_id = ?', [project.id]);
+
+    res.json({ project, sprints, comments, bugs });
   } catch (err) {
     console.error('Erro ao buscar projeto:', err);
     res.status(500).json({ error: 'Erro interno do servidor' });

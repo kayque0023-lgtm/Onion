@@ -9,20 +9,10 @@ import NewProjectPage from './pages/NewProjectPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import BugsPage from './pages/BugsPage';
+import UsersPage from './pages/UsersPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="loading-container" style={{ minHeight: '100vh' }}>
-        <div className="spinner" />
-      </div>
-    );
-  }
-  
-  if (!user) return <Navigate to="/login" replace />;
-  
   const [particleColor, setParticleColor] = useState("#ffffff");
 
   useEffect(() => {
@@ -36,6 +26,16 @@ function ProtectedRoute({ children }) {
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => observer.disconnect();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="loading-container" style={{ minHeight: '100vh' }}>
+        <div className="spinner" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <div className="app-layout" style={{ position: 'relative' }}>
@@ -52,6 +52,14 @@ function ProtectedRoute({ children }) {
       </main>
     </div>
   );
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
 }
 
 function PublicRoute({ children }) {
@@ -72,6 +80,7 @@ function App() {
           <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
           <Route path="/bugs" element={<ProtectedRoute><BugsPage /></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

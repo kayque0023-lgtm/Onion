@@ -67,6 +67,17 @@ export const bugsAPI = {
   update: (id, data) => NODE_API.put(`/bugs/${id}`, data),
 };
 
+// Users
+export const usersAPI = {
+  list: () => NODE_API.get('/users'),
+  changeRole: (id, role) => NODE_API.put(`/users/${id}/role`, { role }),
+  listRequests: () => NODE_API.get('/users/permission-requests'),
+  myRequest: () => NODE_API.get('/users/my-request'),
+  createRequest: (justification) => NODE_API.post('/users/permission-requests', { justification }),
+  approveRequest: (id) => NODE_API.put(`/users/permission-requests/${id}/approve`),
+  rejectRequest: (id, rejection_reason) => NODE_API.put(`/users/permission-requests/${id}/reject`, { rejection_reason }),
+};
+
 // Analytics (Python API)
 export const analyticsAPI = {
   dashboard: (userId) => PYTHON_API.get(`/analytics/dashboard?user_id=${userId}`),

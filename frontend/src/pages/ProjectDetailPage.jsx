@@ -1,31 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { projectsAPI, sprintsAPI, stepsAPI, commentsAPI, uploadsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
-import { ArrowLeft, Plus, Trash2, Send, Edit3, Save, X, FileText, ExternalLink, UploadCloud, ClipboardList, FlaskConical, Code2, UserCircle, MessageSquare, TestTube2, Bug, Hash } from 'lucide-react';
+import StatusSummaryPanel from '../components/StatusSummaryPanel';
+import PermissionRequestBanner from '../components/PermissionRequestBanner';
+import { ArrowLeft, Plus, Trash2, Send, Edit3, Save, X, FileText, ExternalLink, UploadCloud, ClipboardList, FlaskConical, Code2, UserCircle, MessageSquare, TestTube2, Bug, Hash, Download, Loader2, ChevronDown, ChevronRight, ChevronsUpDown, ChevronsDownUp } from 'lucide-react';
+import { generateProjectPdf } from '../services/reportPdf';
 
 const STATUS_OPTIONS = [
-  { value: 'pending_approval', label: 'Pendente' },
-  { value: 'approved', label: 'Aprovado (Passed)' },
-  { value: 'rejected', label: 'Rejeitado (Failed)' },
-  { value: 'blocked', label: 'Bloqueado' },
-  { value: 'bug', label: 'Bug' },
+  { value: 'pending_approval', label: 'Pendente 🟣' },
+  { value: 'approved', label: 'Aprovado (Passed) 🟢' },
+  { value: 'rejected', label: 'Rejeitado (Failed) 🔴' },
+  { value: 'blocked', label: 'Bloqueado 🟠' },
+  { value: 'bug', label: 'Bug ⚫' }
 ];
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { canEdit } = useAuth();
   const [project, setProject] = useState(null);
   const [sprints, setSprints] = useState([]);
   const [comments, setComments] = useState([]);
+  const [bugs, setBugs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newSprintName, setNewSprintName] = useState('');
   const [newComment, setNewComment] = useState('');
   const [newSteps, setNewSteps] = useState({});
+  const [newStepImage, setNewStepImage] = useState({});
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [editFile, setEditFile] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [expandedCards, setExpandedCards] = useState({});
+  const [statusFilter, setStatusFilter] = useState(null);
+
+  // Load/persist expand state per project
+  const getStorageKey = useCallback(() => `tc_expanded_${id}`, [id]);
+
+  const toggleCard = (sprintId) => {
+    setExpandedCards(prev => {
+      const next = { ...prev, [sprintId]: !prev[sprintId] };
+      localStorage.setItem(getStorageKey(), JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const setAllExpanded = (val) => {
+    const next = {};
+    sprints.forEach(s => { next[s.id] = val; });
+    localStorage.setItem(getStorageKey(), JSON.stringify(next));
+    setExpandedCards(next);
+  };
 
   useEffect(() => {
     loadProject();
@@ -52,7 +79,7 @@ export default function ProjectDetailPage() {
       let attachment_path = project.attachment_path;
       if (editFile) {
         const uploadRes = await uploadsAPI.uploadScope(editFile);
-        attachment_path = uploadRes.data.file_path;
+        attachment_path = uploadRes.data.url || uploadRes.data.file_path;
       }
 
       const res = await projectsAPI.update(project.id, {
@@ -72,8 +99,20 @@ export default function ProjectDetailPage() {
     try {
       const res = await projectsAPI.get(id);
       setProject(res.data.project);
-      setSprints(res.data.sprints || []);
+      const loadedSprints = res.data.sprints || [];
+      setSprints(loadedSprints);
       setComments(res.data.comments || []);
+      setBugs(res.data.bugs || []);
+      // Load persisted expand state
+      const saved = localStorage.getItem(`tc_expanded_${id}`);
+      if (saved) {
+        setExpandedCards(JSON.parse(saved));
+      } else {
+        // All expanded by default
+        const init = {};
+        loadedSprints.forEach(s => { init[s.id] = true; });
+        setExpandedCards(init);
+      }
     } catch (err) {
       console.error('Erro ao carregar projeto:', err);
       if (err.response?.status === 404) navigate('/projects');
@@ -86,7 +125,9 @@ export default function ProjectDetailPage() {
     if (!newSprintName.trim()) return;
     try {
       const res = await sprintsAPI.create(id, { name: newSprintName });
-      setSprints([...sprints, res.data.sprint]);
+      const newSprint = res.data.sprint;
+      setSprints(prev => [...prev, newSprint]);
+      setExpandedCards(prev => ({ ...prev, [newSprint.id]: true }));
       setNewSprintName('');
     } catch (err) {
       alert('Erro ao criar sprint');
@@ -94,19 +135,21 @@ export default function ProjectDetailPage() {
   };
 
   const updateSprintStatus = async (sprintId, status) => {
+    if (status === 'bug') {
+      navigate(`/bugs?new=true&projectId=${id}&sprintId=${sprintId}`);
+      return;
+    }
+    // Optimistic update
+    setSprints(prev => prev.map(s => s.id === sprintId ? { ...s, status } : s));
     try {
-      if (status === 'bug') {
-        // Redireciona para aba de bugs passando referencias
-        navigate(`/bugs?new=true&projectId=${id}&sprintId=${sprintId}`);
-        return;
-      }
-      
       const res = await sprintsAPI.update(sprintId, { status });
-      setSprints(sprints.map(s => s.id === sprintId ? res.data.sprint : s));
+      setSprints(prev => prev.map(s => s.id === sprintId ? res.data.sprint : s));
     } catch (err) {
       alert('Erro ao atualizar status');
+      loadProject(); // revert
     }
   };
+
 
   const deleteSprint = async (sprintId) => {
     if (!window.confirm('Excluir este test case e todos os steps?')) return;
@@ -122,7 +165,7 @@ export default function ProjectDetailPage() {
     const desc = newSteps[sprintId];
     if (!desc?.trim()) return;
     try {
-      const res = await stepsAPI.create(sprintId, { description: desc });
+      const res = await stepsAPI.create(sprintId, { description: desc, image_path: null });
       setSprints(sprints.map(s => {
         if (s.id === sprintId) {
           return { ...s, steps: [...(s.steps || []), res.data.step] };
@@ -131,7 +174,30 @@ export default function ProjectDetailPage() {
       }));
       setNewSteps({ ...newSteps, [sprintId]: '' });
     } catch (err) {
+      console.error('Erro ao criar step:', err);
       alert('Erro ao criar step');
+    }
+  };
+
+  const uploadStepImage = async (stepId, sprintId, file) => {
+    try {
+      const uploadRes = await uploadsAPI.uploadEvidence(file);
+      const image_path = uploadRes.data.url || uploadRes.data.file_path;
+      
+      const res = await stepsAPI.update(stepId, { image_path });
+      
+      setSprints(sprints.map(s => {
+        if (s.id === sprintId) {
+          return {
+            ...s,
+            steps: s.steps.map(st => st.id === stepId ? { ...st, image_path: res.data.step.image_path } : st)
+          };
+        }
+        return s;
+      }));
+    } catch (err) {
+      console.error('Erro ao fazer upload da imagem do step:', err);
+      alert('Erro ao anexar imagem ao passo de teste.');
     }
   };
 
@@ -178,6 +244,21 @@ export default function ProjectDetailPage() {
     });
   };
 
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleExtractReport = async () => {
+    if (!project || generatingPdf) return;
+    setGeneratingPdf(true);
+    try {
+      await generateProjectPdf(project, sprints, bugs);
+    } catch (err) {
+      console.error('Erro ao gerar PDF:', err);
+      alert('Erro ao gerar o relatório PDF. Tente novamente.');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   if (loading) return <div className="loading-container"><div className="spinner" /></div>;
   if (!project) return null;
 
@@ -200,12 +281,20 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary btn-sm" onClick={startEditing}>
-            <Edit3 size={14} /> Editar
+          <button className="btn btn-secondary btn-sm" onClick={handleExtractReport} disabled={generatingPdf}>
+            {generatingPdf ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
+            {generatingPdf ? 'Gerando PDF...' : 'Extrair Relatório'}
           </button>
-          <button className="btn btn-danger btn-sm" onClick={deleteProject}>
-            <Trash2 size={14} /> Excluir
-          </button>
+          {canEdit() && (
+            <>
+              <button className="btn btn-secondary btn-sm" onClick={startEditing}>
+                <Edit3 size={14} /> Editar
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={deleteProject}>
+                <Trash2 size={14} /> Excluir
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -231,93 +320,199 @@ export default function ProjectDetailPage() {
                   {project.attachment_path.split('/').pop()}
                 </span>
               </div>
-              <a
-                href={`http://localhost:8000${project.attachment_path}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-primary btn-sm"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0, textDecoration: 'none' }}
-              >
-                <ExternalLink size={14} /> Visualizar / Baixar
-              </a>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <a
+                  href={`http://localhost:8000${project.attachment_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0, textDecoration: 'none' }}
+                >
+                  <ExternalLink size={14} /> Visualizar
+                </a>
+                <button
+                  onClick={async () => {
+                    try {
+                      const url = `http://localhost:8000${project.attachment_path}`;
+                      const response = await fetch(url);
+                      const blob = await response.blob();
+                      const blobUrl = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = blobUrl;
+                      a.download = project.attachment_path.split('/').pop() || 'escopo';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(blobUrl);
+                    } catch (error) {
+                      console.error('Erro ao baixar o arquivo:', error);
+                      const link = document.createElement('a');
+                      link.href = `http://localhost:8000${project.attachment_path}`;
+                      link.download = project.attachment_path.split('/').pop() || 'escopo';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}
+                >
+                  <Download size={14} /> Baixar
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
 
+      {/* Status Summary Panel */}
+      <StatusSummaryPanel
+        sprints={sprints}
+        bugs={bugs}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+      />
+
+      {/* Permission Banner for viewers */}
+      <PermissionRequestBanner />
+
       {/* Test Cases Section */}
       <div style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TestTube2 size={18} style={{ color: 'var(--accent)' }} /> Test Cases ({sprints.length})</h2>
+          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TestTube2 size={18} style={{ color: 'var(--accent)' }} /> Test Cases</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {statusFilter && (
+              <button className="btn btn-ghost btn-sm" onClick={() => setStatusFilter(null)} style={{ fontSize: '0.78rem' }}>✕ Limpar filtro</button>
+            )}
+            <button className="btn btn-ghost btn-sm" title="Expandir todos" onClick={() => setAllExpanded(true)}><ChevronsUpDown size={14} /> Expandir todos</button>
+            <button className="btn btn-ghost btn-sm" title="Minimizar todos" onClick={() => setAllExpanded(false)}><ChevronsDownUp size={14} /> Minimizar todos</button>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{sprints.length} caso(s)</span>
+          </div>
         </div>
 
-        {/* Add Test Case */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-          <input className="form-input" placeholder="Nome do test case..."
-            value={newSprintName} onChange={e => setNewSprintName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') addSprint(); }}
-          />
-          <button className="btn btn-primary" onClick={addSprint}>
-            <Plus size={16} /> Adicionar
-          </button>
-        </div>
+        {/* Add Test Case - only for editors/admins */}
+        {canEdit() && (
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <input className="form-input" placeholder="Nome do test case..."
+              value={newSprintName} onChange={e => setNewSprintName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addSprint(); }}
+            />
+            <button className="btn btn-primary" onClick={addSprint}>
+              <Plus size={16} /> Adicionar
+            </button>
+          </div>
+        )}
 
         {/* Test Case Cards */}
-        {sprints.map(sprint => (
-          <div key={sprint.id} className="sprint-card">
-            <div className="sprint-header">
-              <div className="sprint-name">
-                <ClipboardList size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} /> {sprint.name}
-                <StatusBadge status={sprint.status} />
-              </div>
-              <div className="sprint-actions">
-                <select
-                  className="form-select"
-                  style={{ width: 'auto', padding: '0.375rem 2rem 0.375rem 0.75rem', fontSize: '0.8rem' }}
-                  value={sprint.status}
-                  onChange={e => updateSprintStatus(sprint.id, e.target.value)}
+        {sprints
+          .filter(s => !statusFilter ||
+            (statusFilter === 'approved' && s.status === 'approved') ||
+            (statusFilter === 'rejected' && s.status === 'rejected') ||
+            (statusFilter === 'blocked'  && s.status === 'blocked')  ||
+            (statusFilter === 'bugs'     && s.status === 'bug')      ||
+            (statusFilter === 'pending'  && !['approved','rejected','blocked','bug'].includes(s.status))
+          )
+          .map((sprint, index) => {
+            const isExpanded = expandedCards[sprint.id] !== false;
+            return (
+              <div key={sprint.id} className="sprint-card">
+                {/* Header — always visible */}
+                <div className="sprint-header" style={{ cursor: 'pointer' }}
+                  onClick={() => toggleCard(sprint.id)}
                 >
-                  {STATUS_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <button className="btn btn-danger btn-icon btn-sm" onClick={() => deleteSprint(sprint.id)} title="Excluir test case">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-            <div className="sprint-body">
-              {sprint.steps?.length > 0 && (
-                <ul className="step-list">
-                  {sprint.steps.map((stepItem, sti) => (
-                    <li key={stepItem.id} className="step-item">
-                      <div className="step-number">{sti + 1}</div>
-                      <div className="step-content">
-                        <p className="step-description">{stepItem.description}</p>
-                        {stepItem.expected_result && (
-                          <p className="step-expected">Esperado: {stepItem.expected_result}</p>
-                        )}
-                      </div>
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteStep(stepItem.id, sprint.id)}>
-                        <Trash2 size={12} />
+                  <div className="sprint-name">
+                    <button
+                      aria-expanded={isExpanded}
+                      onClick={e => { e.stopPropagation(); toggleCard(sprint.id); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                    >
+                      {isExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                    </button>
+                    <ClipboardList size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} /> {index + 1} - {sprint.name}
+                    <StatusBadge status={sprint.status} />
+                  </div>
+                  <div className="sprint-actions" onClick={e => e.stopPropagation()}>
+                    {canEdit() && (
+                      <select
+                        className="form-select"
+                        style={{ width: 'auto', padding: '0.375rem 2rem 0.375rem 0.75rem', fontSize: '0.8rem' }}
+                        value={sprint.status}
+                        onChange={e => updateSprintStatus(sprint.id, e.target.value)}
+                      >
+                        {STATUS_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    )}
+                    {canEdit() && (
+                      <button className="btn btn-danger btn-icon btn-sm" onClick={() => deleteSprint(sprint.id)} title="Excluir test case">
+                        <Trash2 size={14} />
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="add-step-form">
-                <input className="form-input" placeholder="Adicionar passo de teste..."
-                  value={newSteps[sprint.id] || ''}
-                  onChange={e => setNewSteps({ ...newSteps, [sprint.id]: e.target.value })}
-                  onKeyDown={e => { if (e.key === 'Enter') addStep(sprint.id); }}
-                />
-                <button className="btn btn-secondary btn-sm" onClick={() => addStep(sprint.id)}>
-                  <Plus size={14} />
-                </button>
+                    )}
+                  </div>
+                </div>
+                {/* Body — collapsible */}
+                {isExpanded && (
+                  <div className="sprint-body">
+                    {sprint.steps?.length > 0 && (
+                      <ul className="step-list">
+                        {sprint.steps.map((stepItem, sti) => (
+                          <li key={stepItem.id} className="step-item">
+                            <div className="step-number">{sti + 1}</div>
+                            <div className="step-content">
+                              <p className="step-description">{stepItem.description}</p>
+                              {stepItem.expected_result && (
+                                <p className="step-expected">Esperado: {stepItem.expected_result}</p>
+                              )}
+                              {stepItem.image_path && (
+                                <div style={{ marginTop: '0.75rem' }}>
+                                  <a href={`http://localhost:8000${stepItem.image_path}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                    <img src={`http://localhost:8000${stepItem.image_path}`} alt="Evidência" style={{ maxHeight: '150px', borderRadius: '6px', border: '1px solid var(--border)', objectFit: 'contain' }} />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                            {canEdit() && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <button className="btn btn-ghost btn-icon btn-sm" title="Anexar Imagem ao Passo" onClick={() => document.getElementById(`upload-step-${stepItem.id}`).click()}>
+                                  <UploadCloud size={14} />
+                                </button>
+                                <input id={`upload-step-${stepItem.id}`} type="file" accept="image/*" style={{ display: 'none' }}
+                                  onChange={e => e.target.files[0] && uploadStepImage(stepItem.id, sprint.id, e.target.files[0])}
+                                />
+                                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => deleteStep(stepItem.id, sprint.id)} title="Excluir passo">
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {canEdit() && (
+                      <div className="add-step-form">
+                        <input className="form-input" placeholder="Adicionar passo de teste..."
+                          value={newSteps[sprint.id] || ''}
+                          onChange={e => setNewSteps({ ...newSteps, [sprint.id]: e.target.value })}
+                          onKeyDown={e => { if (e.key === 'Enter') addStep(sprint.id); }}
+                        />
+                        <button className="btn btn-secondary btn-sm" onClick={() => addStep(sprint.id)}>
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Collapsed summary */}
+                {!isExpanded && (
+                  <div style={{ padding: '0.3rem 1rem 0.6rem 2.5rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {sprint.steps?.length || 0} passo(s)
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        ))}
+            );
+          })
+        }
 
         {sprints.length === 0 && (
           <div className="card">

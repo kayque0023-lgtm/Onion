@@ -98,10 +98,10 @@ router.post('/sprints/:sprintId/steps', [
     const maxOrder = queryOne('SELECT MAX(order_index) as max_order FROM steps WHERE sprint_id = ?', [sprint.id]);
     const orderIndex = (maxOrder?.max_order || 0) + 1;
 
-    const { description, expected_result } = req.body;
+    const { description, expected_result, image_path } = req.body;
     const result = runSql(
-      'INSERT INTO steps (sprint_id, description, expected_result, order_index) VALUES (?, ?, ?, ?)',
-      [sprint.id, description, expected_result || null, orderIndex]
+      'INSERT INTO steps (sprint_id, description, expected_result, image_path, order_index) VALUES (?, ?, ?, ?, ?)',
+      [sprint.id, description, expected_result || null, image_path || null, orderIndex]
     );
 
     const step = queryOne('SELECT * FROM steps WHERE id = ?', [result.lastInsertRowid]);
@@ -123,21 +123,23 @@ router.put('/steps/:id', (req, res) => {
     `, [req.params.id, req.user.id]);
     if (!step) return res.status(404).json({ error: 'Step não encontrado' });
 
-    const { description, expected_result, actual_result, status } = req.body;
+    const { description, expected_result, actual_result, status, image_path } = req.body;
     
     const updateDesc = description !== undefined ? description : step.description;
     const updateExpected = expected_result !== undefined ? expected_result : step.expected_result;
     const updateActual = actual_result !== undefined ? actual_result : step.actual_result;
     const updateStatus = status !== undefined ? status : step.status;
+    const updateImage = image_path !== undefined ? image_path : step.image_path;
 
     runSql(`
       UPDATE steps SET 
         description = ?,
         expected_result = ?,
         actual_result = ?,
+        image_path = ?,
         status = ?
       WHERE id = ?
-    `, [updateDesc, updateExpected, updateActual, updateStatus, req.params.id]);
+    `, [updateDesc, updateExpected, updateActual, updateImage, updateStatus, req.params.id]);
 
     const updated = queryOne('SELECT * FROM steps WHERE id = ?', [req.params.id]);
     res.json({ step: updated });

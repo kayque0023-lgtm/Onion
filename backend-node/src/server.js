@@ -8,6 +8,7 @@ const projectRoutes = require('./routes/projects');
 const sprintRoutes = require('./routes/sprints');
 const commentRoutes = require('./routes/comments');
 const bugsRoutes = require('./routes/bugs');
+const usersRoutes = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -47,6 +48,7 @@ async function startServer() {
   app.use('/api', sprintRoutes);
   app.use('/api/comments', commentRoutes);
   app.use('/api/bugs', bugsRoutes);
+  app.use('/api/users', usersRoutes);
 
   // Error handler
   app.use((err, req, res, next) => {

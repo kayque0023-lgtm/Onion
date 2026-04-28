@@ -41,8 +41,22 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    try {
+      const res = await authAPI.me();
+      setUser(res.data.user);
+      return res.data.user;
+    } catch {
+      return null;
+    }
+  };
+
+  const isAdmin = () => user?.role === 'admin';
+  const isEditor = () => user?.role === 'editor';
+  const canEdit = () => user?.role === 'admin' || user?.role === 'editor';
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, refreshUser, isAdmin, isEditor, canEdit }}>
       {children}
     </AuthContext.Provider>
   );

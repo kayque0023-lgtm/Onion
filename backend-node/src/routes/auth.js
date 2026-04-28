@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const { queryOne, runSql } = require('../database/setup');
+const { queryOne, queryAll, runSql } = require('../database/setup');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -26,12 +26,17 @@ router.post('/register', [
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+
+    // First user in the system gets admin role
+    const userCount = queryOne('SELECT COUNT(*) as count FROM users', []);
+    const role = (userCount.count === 0) ? 'admin' : 'viewer';
+
     const result = runSql(
-      'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
-      [name, email, passwordHash]
+      'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [name, email, passwordHash, role]
     );
 
-    const user = { id: result.lastInsertRowid, name, email };
+    const user = { id: result.lastInsertRowid, name, email, role };
     const token = generateToken(user);
 
     res.status(201).json({ user, token });
@@ -66,7 +71,7 @@ router.post('/login', [
 
     const token = generateToken(user);
     res.json({
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
       token
     });
   } catch (err) {
@@ -77,7 +82,7 @@ router.post('/login', [
 
 // GET /api/auth/me
 router.get('/me', authenticateToken, (req, res) => {
-  const user = queryOne('SELECT id, name, email, avatar_url, created_at FROM users WHERE id = ?', [req.user.id]);
+  const user = queryOne('SELECT id, name, email, role, avatar_url, created_at FROM users WHERE id = ?', [req.user.id]);
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
   res.json({ user });
 });
