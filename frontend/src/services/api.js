@@ -73,11 +73,11 @@ export const bugsAPI = {
 // Users
 export const usersAPI = {
   list: () => NODE_API.get('/users'),
-  listRequests: () => NODE_API.get('/users/requests'),
-  myRequest: () => NODE_API.get('/users/requests/me'),
-  createRequest: (justification) => NODE_API.post('/users/requests', { justification }),
-  approveRequest: (requestId) => NODE_API.post(`/users/requests/${requestId}/approve`),
-  rejectRequest: (requestId, reason) => NODE_API.post(`/users/requests/${requestId}/reject`, { reason }),
+  listRequests: () => NODE_API.get('/users/permission-requests'),
+  myRequest: () => NODE_API.get('/users/my-request'),
+  createRequest: (justification) => NODE_API.post('/users/permission-requests', { justification }),
+  approveRequest: (requestId) => NODE_API.put(`/users/permission-requests/${requestId}/approve`),
+  rejectRequest: (requestId, reason) => NODE_API.put(`/users/permission-requests/${requestId}/reject`, { rejection_reason: reason }),
   changeRole: (userId, newRole) => NODE_API.put(`/users/${userId}/role`, { role: newRole })
 };
 
