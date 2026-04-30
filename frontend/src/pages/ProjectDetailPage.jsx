@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { projectsAPI, sprintsAPI, stepsAPI, commentsAPI, uploadsAPI, parametersAPI } from '../services/api';
@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import StatusSummaryPanel from '../components/StatusSummaryPanel';
 import PermissionRequestBanner from '../components/PermissionRequestBanner';
-import { ArrowLeft, Plus, Trash2, Send, Edit3, Save, X, FileText, ExternalLink, UploadCloud, ClipboardList, FlaskConical, Code2, UserCircle, MessageSquare, TestTube2, Bug, Hash, Download, Loader2, ChevronDown, ChevronRight, ChevronsUpDown, ChevronsDownUp, DownloadCloud, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Send, Edit3, Save, X, FileText, ExternalLink, UploadCloud, ClipboardList, FlaskConical, Code2, UserCircle, MessageSquare, TestTube2, Bug, Hash, Download, Loader2, ChevronDown, ChevronRight, ChevronsUpDown, ChevronsDownUp, DownloadCloud, CheckCircle, AlertTriangle, Filter, Search, Check } from 'lucide-react';
 import { generateProjectPdf } from '../services/reportPdf';
 
 const STATUS_OPTIONS = [
@@ -68,6 +68,72 @@ export default function ProjectDetailPage() {
     localStorage.setItem(getStorageKey(), JSON.stringify(next));
     setExpandedCards(next);
   };
+
+  // Agrupa bugs por test case (sprint) para o card "Bugs Linkados"
+  const linkedBugsBySprint = useMemo(() => {
+    const groups = new Map();
+    bugs.forEach(b => {
+      if (!groups.has(b.sprint_id)) {
+        groups.set(b.sprint_id, { sprint_id: b.sprint_id, sprint_name: b.sprint_name, bugs: [] });
+      }
+      groups.get(b.sprint_id).bugs.push(b);
+    });
+    return Array.from(groups.values());
+  }, [bugs]);
+
+  const openBugInBugsPage = (bugId) => {
+    navigate(`/bugs?bugId=${bugId}&projectId=${id}`);
+  };
+
+  // Picker de filtro por status (na seção Test Cases)
+  const STATUS_FILTER_OPTIONS = [
+    { value: null, label: 'Todos os status', color: 'var(--text-muted)' },
+    { value: 'approved', label: 'Aprovado', color: '#22C55E' },
+    { value: 'rejected', label: 'Rejeitado', color: '#EF4444' },
+    { value: 'blocked', label: 'Bloqueado', color: '#F59E0B' },
+    { value: 'pending', label: 'Pendente', color: '#A855F7' },
+    { value: 'bugs', label: 'Bug', color: '#374151' },
+  ];
+  const [isStatusPickerOpen, setIsStatusPickerOpen] = useState(false);
+  const [statusSearch, setStatusSearch] = useState('');
+  const [statusPickerPos, setStatusPickerPos] = useState({ top: 0, left: 0, width: 0 });
+  const statusBtnRef = useRef(null);
+  const statusPickerRef = useRef(null);
+
+  const computeStatusPickerPos = () => {
+    if (!statusBtnRef.current) return;
+    const rect = statusBtnRef.current.getBoundingClientRect();
+    setStatusPickerPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+  };
+
+  useEffect(() => {
+    if (!isStatusPickerOpen) return;
+    computeStatusPickerPos();
+    const handleClickOutside = (e) => {
+      if (
+        statusPickerRef.current && !statusPickerRef.current.contains(e.target) &&
+        statusBtnRef.current && !statusBtnRef.current.contains(e.target)
+      ) {
+        setIsStatusPickerOpen(false);
+        setStatusSearch('');
+      }
+    };
+    const handleReposition = () => computeStatusPickerPos();
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
+    };
+  }, [isStatusPickerOpen]);
+
+  const filteredStatusOptions = useMemo(
+    () => STATUS_FILTER_OPTIONS.filter(o => o.label.toLowerCase().includes(statusSearch.toLowerCase())),
+    [statusSearch]
+  );
+  const currentStatusOption = STATUS_FILTER_OPTIONS.find(o => o.value === statusFilter) || STATUS_FILTER_OPTIONS[0];
 
   useEffect(() => {
     loadProject();
@@ -399,29 +465,129 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TestTube2 size={18} style={{ color: 'var(--accent)' }} /> Test Cases</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr minmax(280px, 360px)',
+        gap: '1rem',
+        alignItems: 'stretch',
+        marginBottom: '2rem'
+      }}>
+        <div className="card tc-compact" style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem', margin: 0 }}><TestTube2 size={16} style={{ color: 'var(--accent)' }} /> Test Cases</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
             {statusFilter && (
-              <button className="btn btn-ghost btn-sm" onClick={() => setStatusFilter(null)} style={{ fontSize: '0.78rem' }}>✕ Limpar filtro</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setStatusFilter(null)} style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}>✕ Limpar filtro</button>
             )}
-            <button className="btn btn-ghost btn-sm" title="Expandir todos" onClick={() => setAllExpanded(true)}><ChevronsUpDown size={14} /> Expandir todos</button>
-            <button className="btn btn-ghost btn-sm" title="Minimizar todos" onClick={() => setAllExpanded(false)}><ChevronsDownUp size={14} /> Minimizar todos</button>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{sprints.length} caso(s)</span>
+            <button className="btn btn-ghost btn-sm" title="Expandir todos" onClick={() => setAllExpanded(true)} style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}><ChevronsUpDown size={12} /> Expandir</button>
+            <button className="btn btn-ghost btn-sm" title="Minimizar todos" onClick={() => setAllExpanded(false)} style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem' }}><ChevronsDownUp size={12} /> Minimizar</button>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{sprints.length} caso(s)</span>
           </div>
         </div>
 
+        {/* Filtro de status com busca */}
+        <button
+          ref={statusBtnRef}
+          type="button"
+          onClick={() => setIsStatusPickerOpen(o => !o)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: '0.5rem', width: '100%', marginBottom: '0.5rem',
+            padding: '0.4rem 0.65rem', borderRadius: '8px',
+            border: '1px solid var(--border)', background: 'var(--bg-input, var(--bg-secondary))',
+            color: 'var(--text-primary)', cursor: 'pointer',
+            fontSize: '0.8rem'
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+            <Filter size={13} style={{ color: 'var(--text-muted)' }} />
+            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Filtro:</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontWeight: 600 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: currentStatusOption.color, display: 'inline-block' }} />
+              {currentStatusOption.label}
+            </span>
+          </span>
+          <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+        </button>
+
         {canEdit() && (
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
             <input className="form-input" placeholder="Nome do test case..."
+              style={{ fontSize: '0.82rem', padding: '0.4rem 0.6rem' }}
               value={newSprintName} onChange={e => setNewSprintName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addSprint(); }}
             />
-            <button className="btn btn-primary" onClick={addSprint}>
-              <Plus size={16} /> Adicionar
+            <button className="btn btn-primary btn-sm" onClick={addSprint} style={{ fontSize: '0.78rem' }}>
+              <Plus size={14} /> Adicionar
             </button>
           </div>
+        )}
+
+        {/* Popover do filtro de status (via portal) */}
+        {isStatusPickerOpen && createPortal(
+          <div
+            ref={statusPickerRef}
+            style={{
+              position: 'fixed',
+              top: statusPickerPos.top, left: statusPickerPos.left,
+              width: Math.max(statusPickerPos.width, 240),
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: '10px',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+              padding: '0.6rem',
+              zIndex: 1500
+            }}
+          >
+            <div style={{ position: 'relative', marginBottom: '0.4rem' }}>
+              <Search size={13} style={{ position: 'absolute', top: '50%', left: '0.6rem', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Buscar status..."
+                value={statusSearch}
+                onChange={e => setStatusSearch(e.target.value)}
+                autoFocus
+                style={{ paddingLeft: '2rem', fontSize: '0.78rem', padding: '0.35rem 0.5rem 0.35rem 2rem' }}
+              />
+            </div>
+            <div style={{ maxHeight: '220px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {filteredStatusOptions.map(opt => {
+                const isActive = opt.value === statusFilter;
+                return (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => {
+                      setStatusFilter(opt.value);
+                      setIsStatusPickerOpen(false);
+                      setStatusSearch('');
+                    }}
+                    style={{
+                      width: '100%', textAlign: 'left',
+                      background: isActive ? 'var(--bg-secondary)' : 'transparent',
+                      border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px',
+                      cursor: 'pointer', color: 'var(--text-primary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      fontSize: '0.82rem'
+                    }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: opt.color, display: 'inline-block' }} />
+                      {opt.label}
+                    </span>
+                    {isActive && <Check size={13} style={{ color: 'var(--accent, #008080)' }} />}
+                  </button>
+                );
+              })}
+              {filteredStatusOptions.length === 0 && (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.78rem', padding: '0.6rem 0', margin: 0 }}>
+                  Nenhum status encontrado
+                </p>
+              )}
+            </div>
+          </div>,
+          document.body
         )}
 
         {sprints
@@ -434,12 +600,13 @@ export default function ProjectDetailPage() {
           )
           .map((sprint, index) => {
             const isExpanded = expandedCards[sprint.id] !== false;
+            const sprintBugs = bugs.filter(b => b.sprint_id === sprint.id);
             return (
               <div key={sprint.id} className="sprint-card">
                 <div className="sprint-header" style={{ cursor: 'pointer' }}
                   onClick={() => toggleCard(sprint.id)}
                 >
-                  <div className="sprint-name">
+                  <div className="sprint-name" style={{ flexWrap: 'wrap' }}>
                     <button
                       aria-expanded={isExpanded}
                       onClick={e => { e.stopPropagation(); toggleCard(sprint.id); }}
@@ -449,6 +616,33 @@ export default function ProjectDetailPage() {
                     </button>
                     <ClipboardList size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} /> {index + 1} - {sprint.name}
                     <StatusBadge status={sprint.status} />
+                    {sprintBugs.map(b => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={e => { e.stopPropagation(); openBugInBugsPage(b.id); }}
+                        title={b.description}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.2rem',
+                          padding: '0.12rem 0.4rem',
+                          fontSize: '0.68rem', fontWeight: 600,
+                          borderRadius: '999px',
+                          border: '1px solid ' + (
+                            b.status === 'approved' ? '#22C55E' :
+                            b.status === 'rejected' ? '#EF4444' : '#6B7280'
+                          ),
+                          color: b.status === 'approved' ? '#22C55E' :
+                                 b.status === 'rejected' ? '#EF4444' : '#6B7280',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          flexShrink: 0
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <Bug size={9} /> {b.serial_number}
+                      </button>
+                    ))}
                   </div>
                   <div className="sprint-actions" onClick={e => e.stopPropagation()}>
                     {canEdit() && (
@@ -532,6 +726,76 @@ export default function ProjectDetailPage() {
             );
           })
         }
+        </div>
+
+        {/* Card direito: Bugs Linkados */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 0 }}>
+          <div style={{
+            padding: '0.85rem 1rem',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem'
+          }}>
+            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem', margin: 0 }}>
+              <Bug size={16} style={{ color: 'var(--danger, #EF4444)' }} /> Bugs Linkados
+            </h2>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{bugs.length} bug(s)</span>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1, padding: '0.6rem 0.85rem' }}>
+            {linkedBugsBySprint.length === 0 ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: '1.5rem 1rem', color: 'var(--text-muted)', textAlign: 'center', gap: '0.5rem',
+                height: '100%'
+              }}>
+                <Bug size={28} style={{ opacity: 0.4 }} />
+                <p style={{ margin: 0, fontSize: '0.82rem' }}>Nenhum bug registrado neste projeto</p>
+              </div>
+            ) : (
+              linkedBugsBySprint.map(group => (
+                <div key={group.sprint_id} style={{ marginBottom: '0.85rem' }}>
+                  <div style={{
+                    fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase',
+                    letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '0.4rem',
+                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }} title={group.sprint_name}>
+                    <ClipboardList size={11} style={{ flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{group.sprint_name}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                    {group.bugs.map(b => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => openBugInBugsPage(b.id)}
+                        title={b.description}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                          padding: '0.25rem 0.55rem',
+                          fontSize: '0.72rem', fontWeight: 600,
+                          borderRadius: '999px',
+                          border: '1px solid ' + (
+                            b.status === 'approved' ? '#22C55E' :
+                            b.status === 'rejected' ? '#EF4444' : '#6B7280'
+                          ),
+                          background: 'transparent',
+                          color: b.status === 'approved' ? '#22C55E' :
+                                 b.status === 'rejected' ? '#EF4444' : '#6B7280',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s, transform 0.1s'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-secondary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <Bug size={10} /> {b.serial_number}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="card">

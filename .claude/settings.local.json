@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(echo \"Backend Node iniciado com PID $!\")",
+      "Bash(uvicorn app.main:app --reload)",
+      "Bash(echo \"Backend Python iniciado com PID $!\")",
+      "Bash(uvicorn app.main:app --reload --port 8000)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(curl -s http://localhost:8000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"Node:%{http_code}\\\\n\" http://localhost:3001/api/health)",
+      "Bash(curl -s -o /dev/null -w \"Python:%{http_code}\\\\n\" http://localhost:8000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"Vite5174:%{http_code}\\\\n\" http://localhost:5174/)",
+      "Bash(curl -s -o /dev/null -w \"Vite5173:%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" status)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" remote -v)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" log --oneline -5)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" diff --stat)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" diff frontend/src/pages/BugsPage.jsx frontend/src/pages/DashboardPage.jsx frontend/src/index.css)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" diff frontend/src/pages/DashboardPage.jsx)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" add frontend/src/index.css frontend/src/pages/BugsPage.jsx frontend/src/pages/DashboardPage.jsx frontend/src/pages/ProjectDetailPage.jsx backend-node/qualiqa.db)",
+      "Bash(git -C c:/Users/Work/Desktop/ALMonion commit -m ' *)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" log --oneline -3)",
+      "Bash(git -C \"c:/Users/Work/Desktop/ALMonion\" push origin main)",
+      "Bash(git -C c:/Users/Work/Desktop/ALMonion add backend-node/qualiqa.db frontend/index.html frontend/src/components/Navbar.jsx frontend/src/components/OnionLabLogo.jsx frontend/src/index.css frontend/src/pages/BugsPage.jsx frontend/src/pages/LoginPage.jsx frontend/src/services/reportPdf.js frontend/public/onion-lab.svg)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Work\\.claude\\projects\\c--Users-Work-Desktop-ALMonion"
+    ]
+  }
+}

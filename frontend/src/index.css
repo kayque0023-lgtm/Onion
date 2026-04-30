@@ -823,6 +823,17 @@ select:-webkit-autofill:focus {
 /* Sprint Cards                                 */
 /* ============================================ */
 
+/* Compact test cases (project detail page) */
+.tc-compact .sprint-card { margin-bottom: 0.5rem; border-radius: 8px; }
+.tc-compact .sprint-header { padding: 0.5rem 0.75rem; }
+.tc-compact .sprint-name { font-size: 0.82rem; gap: 0.4rem; }
+.tc-compact .sprint-body { padding: 0.5rem 0.75rem; }
+.tc-compact .step-item { padding: 0.45rem 0; gap: 0.5rem; }
+.tc-compact .step-description { font-size: 0.78rem; }
+.tc-compact .step-number { width: 20px; height: 20px; font-size: 0.72rem; }
+.tc-compact .add-step-form { gap: 0.4rem; padding-top: 0.4rem; }
+.tc-compact .form-input { font-size: 0.82rem; padding: 0.4rem 0.6rem; }
+
 .sprint-card {
   background: var(--bg-card);
   border: 1px solid var(--border);

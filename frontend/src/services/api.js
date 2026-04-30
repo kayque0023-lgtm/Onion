@@ -31,6 +31,8 @@ export const authAPI = {
   register: (data) => NODE_API.post('/auth/register', data),
   login: (data) => NODE_API.post('/auth/login', data),
   me: () => NODE_API.get('/auth/me'),
+  updateProfile: (data) => NODE_API.put('/auth/profile', data),
+  changePassword: (data) => NODE_API.put('/auth/password', data),
 };
 
 // Projects

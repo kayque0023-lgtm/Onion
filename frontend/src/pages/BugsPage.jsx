@@ -33,6 +33,9 @@ export default function BugsPage() {
   const PAGE_SIZE = 6;
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Bug detail modal (quando navega de outra tela com ?bugId=)
+  const [detailBug, setDetailBug] = useState(null);
+
   // Project picker (donut center)
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [projectSearch, setProjectSearch] = useState('');
@@ -84,7 +87,30 @@ export default function BugsPage() {
       setIsModalOpen(true);
       if (pid) loadSprintsForProject(pid);
     }
+    // Vindo da página de projeto via "Bugs Linkados": filtra projeto e abre detalhe do bug
+    const bugIdParam = params.get('bugId');
+    const projectIdParam = params.get('projectId');
+    if (bugIdParam && projectIdParam && !params.get('new')) {
+      setSelectedProjectId(projectIdParam);
+    }
   }, [location.search]);
+
+  // Quando os bugs são carregados e existe ?bugId=, abre o modal de detalhe
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const bugIdParam = params.get('bugId');
+    if (!bugIdParam || params.get('new') === 'true' || bugs.length === 0) return;
+    const bug = bugs.find(b => String(b.id) === String(bugIdParam));
+    if (bug) setDetailBug(bug);
+  }, [bugs, location.search]);
+
+  useEffect(() => {
+    if (detailBug) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [detailBug]);
 
   useEffect(() => {
     loadBugs();
@@ -485,7 +511,7 @@ export default function BugsPage() {
               </thead>
               <tbody>
                 {pagedBugs.map(bug => (
-                  <tr key={bug.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <tr key={bug.id} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => setDetailBug(bug)} className="hover-row">
                     <td style={{ padding: '0.55rem 0.6rem', fontWeight: 600, color: 'var(--danger)', whiteSpace: 'nowrap' }}>
                       {bug.serial_number}
                     </td>
@@ -506,15 +532,16 @@ export default function BugsPage() {
                     </td>
                     <td style={{ padding: '0.55rem 0.6rem', whiteSpace: 'nowrap' }}>
                       {bug.evidence_url ? (
-                        <a
-                          href={`http://localhost:8000${bug.evidence_url}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`http://localhost:8000${bug.evidence_url}`, '_blank');
+                          }}
                           className="btn btn-secondary btn-sm"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.45rem', fontSize: '0.72rem' }}
                         >
                           <ImageIcon size={12} /> Ver
-                        </a>
+                        </span>
                       ) : (
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>
                       )}
@@ -531,6 +558,7 @@ export default function BugsPage() {
                           color: bug.status === 'approved' ? '#22C55E' : bug.status === 'rejected' ? '#EF4444' : 'var(--text-primary)'
                         }}
                         value={bug.status || 'pending'}
+                        onClick={(e) => e.stopPropagation()}
                         onChange={(e) => handleUpdateStatus(bug.id, e.target.value)}
                       >
                         <option value="pending" style={{ color: '#6B7280' }}>● Pendente</option>
@@ -717,6 +745,159 @@ export default function BugsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal de Detalhes do Bug (vindo da tela de projeto via ?bugId=) */}
+      {detailBug && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          padding: '2rem 1rem', boxSizing: 'border-box', overflowY: 'auto'
+        }}>
+          <div className="card" style={{ maxWidth: '640px', width: '100%', padding: '1.25rem', margin: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', paddingBottom: '0.5rem' }}>
+              <div>
+                <h2 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Bug size={18} style={{ color: 'var(--danger, #EF4444)' }} />
+                  <span style={{ color: 'var(--danger, #EF4444)' }}>{detailBug.serial_number}</span>
+                </h2>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Detalhes do bug
+                </p>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => {
+                setDetailBug(null);
+                navigate('/bugs', { replace: true });
+              }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.75rem' }}>
+              <div>
+                <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.2rem', display: 'block' }}>Projeto</label>
+                <div style={{ fontSize: '0.88rem' }}>{detailBug.project_name}</div>
+              </div>
+              <div>
+                <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.2rem', display: 'block' }}>Test Case</label>
+                <div style={{ fontSize: '0.88rem' }}>{detailBug.sprint_name}</div>
+              </div>
+              <div>
+                <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.2rem', display: 'block' }}>Status</label>
+                <select
+                  className="form-select"
+                  style={{
+                    fontSize: '0.82rem', padding: '0.3rem 0.5rem',
+                    color: detailBug.status === 'approved' ? '#22C55E' : detailBug.status === 'rejected' ? '#EF4444' : 'var(--text-primary)'
+                  }}
+                  value={detailBug.status || 'pending'}
+                  onChange={(e) => {
+                    handleUpdateStatus(detailBug.id, e.target.value);
+                    setDetailBug({ ...detailBug, status: e.target.value });
+                  }}
+                >
+                  <option value="pending" style={{ color: '#6B7280' }}>● Pendente</option>
+                  <option value="approved" style={{ color: '#22C55E' }}>● Resolvido</option>
+                  <option value="rejected" style={{ color: '#EF4444' }}>● Recusado</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.2rem', display: 'block' }}>Registrado em</label>
+                <div style={{ fontSize: '0.88rem' }}>{formatDate(detailBug.created_at)}</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '0.85rem' }}>
+              <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.2rem', display: 'block' }}>Descrição</label>
+              <textarea
+                className="form-input"
+                style={{
+                  fontSize: '0.85rem', whiteSpace: 'pre-wrap',
+                  padding: '0.65rem', borderRadius: '8px',
+                  background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                  minHeight: '80px', resize: 'vertical', width: '100%'
+                }}
+                value={detailBug.description || ''}
+                onChange={(e) => {
+                  setDetailBug({ ...detailBug, description: e.target.value, isDirty: true });
+                }}
+              />
+            </div>
+
+            <div style={{ marginTop: '0.85rem' }}>
+              <label className="form-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Evidência</label>
+              {detailBug.evidence_url && !detailBug.newEvidenceFile && (
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <a href={`http://localhost:8000${detailBug.evidence_url}`} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={`http://localhost:8000${detailBug.evidence_url}`}
+                      alt="Evidência"
+                      style={{ maxWidth: '100%', maxHeight: '320px', borderRadius: '8px', border: '1px solid var(--border)', display: 'block' }}
+                    />
+                  </a>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => document.getElementById('edit-bug-evidence').click()}
+                >
+                  <UploadCloud size={14} /> {detailBug.evidence_url ? 'Alterar Imagem' : 'Anexar Imagem'}
+                </button>
+                {detailBug.newEvidenceFile && (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--success)' }}>Nova imagem selecionada</span>
+                )}
+                <input
+                  id="edit-bug-evidence"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setDetailBug({ ...detailBug, newEvidenceFile: e.target.files[0], isDirty: true });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => {
+                setDetailBug(null);
+                navigate('/bugs', { replace: true });
+              }}>Fechar</button>
+              {detailBug.isDirty && (
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    try {
+                      let evidence_url = detailBug.evidence_url;
+                      if (detailBug.newEvidenceFile) {
+                        const uploadRes = await uploadsAPI.uploadEvidence(detailBug.newEvidenceFile);
+                        evidence_url = uploadRes.data.url;
+                      }
+                      await bugsAPI.update(detailBug.id, {
+                        description: detailBug.description,
+                        evidence_url: evidence_url
+                      });
+                      loadBugs();
+                      const updated = { ...detailBug, evidence_url, newEvidenceFile: null, isDirty: false };
+                      setDetailBug(updated);
+                      alert('Bug atualizado com sucesso!');
+                    } catch (err) {
+                      console.error('Erro ao salvar bug', err);
+                      alert('Erro ao salvar bug');
+                    }
+                  }}
+                >
+                  Salvar Alterações
+                </button>
+              )}
+            </div>
           </div>
         </div>,
         document.body

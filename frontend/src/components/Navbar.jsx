@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, FolderPlus, Folders, LogOut, Sun, Moon, Bug, Users, ShieldCheck, Eye, Pencil } from 'lucide-react';
+import { Home, FolderPlus, Folders, LogOut, Sun, Moon, Bug, Users, ShieldCheck, Eye, Pencil, Settings } from 'lucide-react';
 import OnionLabLogo from './OnionLabLogo';
+import UserSettingsModal from './UserSettingsModal';
 
 const ROLE_LABELS = { admin: 'Administrador', editor: 'Editor', viewer: 'Visualização' };
 const ROLE_ICONS = { admin: ShieldCheck, editor: Pencil, viewer: Eye };
@@ -12,6 +13,7 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -74,10 +76,14 @@ export default function Navbar() {
             {user?.name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
         </div>
+        <button className="btn btn-ghost btn-icon" onClick={() => setIsSettingsOpen(true)} title="Configurações da conta">
+          <Settings size={18} />
+        </button>
         <button className="btn btn-ghost btn-icon" onClick={handleLogout} title="Sair">
           <LogOut size={18} />
         </button>
       </div>
+      <UserSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </nav>
   );
 }

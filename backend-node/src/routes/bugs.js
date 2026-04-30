@@ -84,18 +84,11 @@ router.post('/', [
 });
 
 // PUT /api/bugs/:id
-// Atualiza o status de um bug
-router.put('/:id', [
-  body('status').isIn(['pending', 'approved', 'rejected']).withMessage('Status inválido'),
-], (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
+// Atualiza os dados de um bug
+router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, description, evidence_url } = req.body;
 
     // Verificar se o bug pertence a um projeto do usuário
     const bug = queryOne(`
@@ -106,11 +99,44 @@ router.put('/:id', [
 
     if (!bug) return res.status(404).json({ error: 'Bug não encontrado ou acesso negado' });
 
-    runSql('UPDATE bugs SET status = ? WHERE id = ?', [status, id]);
+    let updates = [];
+    let params = [];
 
-    res.json({ message: 'Status do bug atualizado com sucesso' });
+    if (status !== undefined) {
+      if (!['pending', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: 'Status inválido' });
+      }
+      updates.push('status = ?');
+      params.push(status);
+    }
+
+    if (description !== undefined) {
+      updates.push('description = ?');
+      params.push(description);
+    }
+
+    if (evidence_url !== undefined) {
+      updates.push('evidence_url = ?');
+      params.push(evidence_url);
+    }
+
+    if (updates.length > 0) {
+      params.push(id);
+      runSql(`UPDATE bugs SET ${updates.join(', ')} WHERE id = ?`, params);
+    }
+
+    // Retorna o bug atualizado
+    const updatedBug = queryOne(`
+      SELECT b.*, p.name as project_name, s.name as sprint_name 
+      FROM bugs b 
+      JOIN projects p ON b.project_id = p.id 
+      JOIN sprints s ON b.sprint_id = s.id 
+      WHERE b.id = ?
+    `, [id]);
+
+    res.json({ message: 'Bug atualizado com sucesso', bug: updatedBug });
   } catch (err) {
-    console.error('Erro ao atualizar status do bug:', err);
+    console.error('Erro ao atualizar bug:', err);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
