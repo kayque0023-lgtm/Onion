@@ -11,11 +11,6 @@ Write-Host "   QualiQA - Iniciando Servicos" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Adicionar Node.js ao PATH da sessao
-$nodePath = "C:\Program Files\nodejs"
-$pythonPath = "C:\Users\Work\AppData\Local\Programs\Python\Python312\Scripts"
-$env:PATH = "$nodePath;$pythonPath;$env:PATH"
-
 # 1. Backend Node.js (porta 3001)
 Write-Host "[1/3] Iniciando Backend Node.js (porta 3001)..." -ForegroundColor Yellow
 $nodeCmd = "Set-Location '$PSScriptRoot\backend-node'; Write-Host '=== QualiQA Node API ===' -ForegroundColor Green; npm run dev"
@@ -51,4 +46,3 @@ Write-Host ""
 
 # Abre o navegador automaticamente
 Start-Process "http://localhost:5173"
-
