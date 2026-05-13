@@ -20,7 +20,7 @@ Start-Sleep -Seconds 2
 
 # 2. Backend Python FastAPI (porta 8000)
 Write-Host "[2/3] Iniciando Backend Python FastAPI (porta 8000)..." -ForegroundColor Yellow
-$pythonCmd = "Set-Location '$PSScriptRoot\backend-python'; Write-Host '=== QualiQA Python API ===' -ForegroundColor Green; python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+$pythonCmd = "Set-Location '$PSScriptRoot\backend-python'; Write-Host '=== QualiQA Python API ===' -ForegroundColor Green; py -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $pythonCmd -WindowStyle Normal
 
 Start-Sleep -Seconds 2
