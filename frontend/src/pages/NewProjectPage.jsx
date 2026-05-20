@@ -17,6 +17,8 @@ export default function NewProjectPage() {
   const [qaName, setQaName] = useState('');
   const [managerName, setManagerName] = useState('');
   const [clientCompany, setClientCompany] = useState('');
+  const [ktDate, setKtDate] = useState('');
+  const [testDate, setTestDate] = useState('');
 
   const [parameters, setParameters] = useState([]);
 
@@ -59,7 +61,9 @@ export default function NewProjectPage() {
       const res = await projectsAPI.create({
         name, proposal_number: proposalNumber,
         developer_name: developerName, qa_name: qaName, manager_name: managerName,
-        client_company: clientCompany || null
+        client_company: clientCompany || null,
+        kt_date: ktDate || null,
+        test_date: testDate || null
       });
       setProjectId(res.data.project.id);
       setStep(2);
@@ -219,6 +223,26 @@ export default function NewProjectPage() {
                   <option value="">Selecione uma empresa...</option>
                   {getOptions('client').map(p => <option key={p.id} value={p.value}>{p.value}</option>)}
                 </select>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Data de KT</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input"
+                    value={ktDate}
+                    onChange={e => setKtDate(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Data de Testes</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input"
+                    value={testDate}
+                    onChange={e => setTestDate(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="wizard-actions">
                 <div />

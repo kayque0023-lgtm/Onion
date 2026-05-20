@@ -44,5 +44,4 @@ Write-Host ""
 Write-Host "  Para parar, feche as 3 janelas do PowerShell." -ForegroundColor Gray
 Write-Host ""
 
-# Abre o navegador automaticamente
-Start-Process "http://localhost:5173"
+# O navegador será aberto automaticamente pelo Vite (configurado no vite.config.js)

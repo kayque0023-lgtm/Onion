@@ -168,6 +168,8 @@ async function initializeDatabase() {
     'ALTER TABLE steps ADD COLUMN image_path TEXT',
     'ALTER TABLE users ADD COLUMN role TEXT DEFAULT "viewer"',
     'ALTER TABLE projects ADD COLUMN client_company TEXT',
+    'ALTER TABLE projects ADD COLUMN kt_date DATETIME',
+    'ALTER TABLE projects ADD COLUMN test_date DATETIME',
   ];
   for (const sql of migrations) {
     try { database.run(sql); } catch (e) { /* already exists */ }
