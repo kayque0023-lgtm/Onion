@@ -10,6 +10,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import BugsPage from './pages/BugsPage';
 import UsersPage from './pages/UsersPage';
+import PriorityMapPage from './pages/PriorityMapPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -81,6 +82,7 @@ function App() {
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
           <Route path="/bugs" element={<ProtectedRoute><BugsPage /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+          <Route path="/priority-map" element={<ProtectedRoute><PriorityMapPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

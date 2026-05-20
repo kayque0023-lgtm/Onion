@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, FolderPlus, Folders, LogOut, Sun, Moon, Bug, Users, ShieldCheck, Eye, Pencil, Settings } from 'lucide-react';
+import { Home, FolderPlus, Folders, LogOut, Sun, Moon, Bug, Users, ShieldCheck, Eye, Pencil, Settings, LayoutGrid } from 'lucide-react';
 import OnionLabLogo from './OnionLabLogo';
 import UserSettingsModal from './UserSettingsModal';
 
@@ -33,6 +33,7 @@ export default function Navbar() {
     { path: '/projects', label: 'Projetos', icon: Folders },
     { path: '/bugs', label: 'Bugs', icon: Bug },
     { path: '/users', label: 'Usuários', icon: Users },
+    { path: '/priority-map', label: 'Mapa de Prioridades', icon: LayoutGrid },
   ];
 
   const RoleIcon = ROLE_ICONS[user?.role] || Eye;

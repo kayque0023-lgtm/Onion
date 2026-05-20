@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import StatusSummaryPanel from '../components/StatusSummaryPanel';
 import PermissionRequestBanner from '../components/PermissionRequestBanner';
-import { ArrowLeft, Plus, Trash2, Send, Edit3, Save, X, FileText, ExternalLink, UploadCloud, ClipboardList, FlaskConical, Code2, UserCircle, MessageSquare, TestTube2, Bug, Hash, Download, Loader2, ChevronDown, ChevronRight, ChevronsUpDown, ChevronsDownUp, DownloadCloud, CheckCircle, AlertTriangle, Filter, Search, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Send, Edit3, Save, X, FileText, ExternalLink, UploadCloud, ClipboardList, FlaskConical, Code2, UserCircle, MessageSquare, TestTube2, Bug, Hash, Download, Loader2, ChevronDown, ChevronRight, ChevronsUpDown, ChevronsDownUp, DownloadCloud, CheckCircle, AlertTriangle, Filter, Search, Check, Calendar, GraduationCap } from 'lucide-react';
 import { generateProjectPdf } from '../services/reportPdf';
 
 const STATUS_OPTIONS = [
@@ -151,6 +151,15 @@ export default function ProjectDetailPage() {
 
   const getOptions = (category) => parameters.filter(p => p.category === category);
 
+  // Converte ISO/SQL datetime para formato aceito pelo input datetime-local (YYYY-MM-DDTHH:mm)
+  const toDatetimeLocal = (val) => {
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   const startEditing = () => {
     setEditForm({
       name: project.name || '',
@@ -160,10 +169,61 @@ export default function ProjectDetailPage() {
       manager_name: project.manager_name || '',
       client_company: project.client_company || '',
       scope_summary: project.scope_summary || '',
-      status: project.status || 'active'
+      status: project.status || 'active',
+      kt_date: toDatetimeLocal(project.kt_date),
+      test_date: toDatetimeLocal(project.test_date)
     });
     setEditFile(null);
     setIsEditing(true);
+  };
+
+  // Verifica se todos os test cases estão aprovados (passed) — nesse caso, datas perdem cor
+  const allSprintsPassed = useMemo(() => {
+    if (!sprints || sprints.length === 0) return false;
+    return sprints.every(s => s.status === 'approved');
+  }, [sprints]);
+
+  // Re-renderiza a cada minuto para atualizar a coloração das datas conforme o tempo passa
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setNowTick(t => t + 1), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+  void nowTick;
+
+  // Calcula a cor de proximidade de uma data
+  // Verde (>= 30 dias) → Amarelo (15-29 dias) → Laranja (7-14 dias) → Vermelho (< 7 dias) → Preto (passou)
+  const getDateProximityStyle = (dateStr) => {
+    if (!dateStr) return null;
+    const target = new Date(dateStr);
+    if (isNaN(target.getTime())) return null;
+    if (allSprintsPassed) {
+      return { color: 'var(--text-primary)', bg: 'var(--bg-tertiary)', border: 'var(--border)', label: 'Concluído', glow: null };
+    }
+    const now = new Date();
+    const diffMs = target.getTime() - now.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+    if (diffDays < 0) {
+      return { color: '#ffffff', bg: '#111827', border: '#000000', label: 'Atrasado', glow: '0 0 12px rgba(0,0,0,0.6)' };
+    }
+    if (diffDays < 7) {
+      return { color: '#ffffff', bg: '#EF4444', border: '#DC2626', label: 'Crítico', glow: '0 0 14px rgba(239,68,68,0.55)' };
+    }
+    if (diffDays < 15) {
+      return { color: '#7c2d12', bg: '#FB923C', border: '#F97316', label: 'Atenção', glow: '0 0 12px rgba(249,115,22,0.45)' };
+    }
+    if (diffDays < 30) {
+      return { color: '#713f12', bg: '#FCD34D', border: '#F59E0B', label: 'Próximo', glow: '0 0 10px rgba(245,158,11,0.4)' };
+    }
+    return { color: '#064e3b', bg: '#86EFAC', border: '#22C55E', label: 'No prazo', glow: '0 0 10px rgba(34,197,94,0.35)' };
+  };
+
+  const formatDateTime = (val) => {
+    if (!val) return '';
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const handleSaveProject = async () => {
@@ -408,40 +468,87 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      {(project.scope_summary || project.attachment_path) && (
-        <div className="card mb-2">
-          <div className="card-header">
-            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FileText size={16} style={{ color: 'var(--accent)' }} /> Escopo</h2>
-          </div>
-          {project.scope_summary && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
-              {project.scope_summary}
-            </p>
-          )}
-          {project.attachment_path && (
-            <div className="file-preview mt-1" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border)' }}>
-              <FileText size={24} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <span className="file-preview-name" style={{ display: 'block', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <FileText size={14} style={{ display: 'inline', marginRight: '4px' }} /> Arquivo do escopo
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {project.attachment_path.split('/').pop()}
-                </span>
+      {(project.scope_summary || project.attachment_path || project.kt_date || project.test_date) && (
+        <div className="mb-2" style={{
+          display: 'grid',
+          gridTemplateColumns: (project.scope_summary || project.attachment_path)
+            ? 'minmax(0, 1fr) minmax(260px, 360px)'
+            : '1fr',
+          gap: '1rem',
+          alignItems: 'stretch'
+        }}>
+          {(project.scope_summary || project.attachment_path) && (
+            <div className="card" style={{ margin: 0 }}>
+              <div className="card-header">
+                <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FileText size={16} style={{ color: 'var(--accent)' }} /> Escopo</h2>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <a
-                  href={`http://localhost:8000${project.attachment_path}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary btn-sm"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0, textDecoration: 'none' }}
-                >
-                  <ExternalLink size={14} /> Visualizar
-                </a>
-              </div>
+              {project.scope_summary && (
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+                  {project.scope_summary}
+                </p>
+              )}
+              {project.attachment_path && (
+                <div className="file-preview mt-1" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <FileText size={24} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span className="file-preview-name" style={{ display: 'block', fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <FileText size={14} style={{ display: 'inline', marginRight: '4px' }} /> Arquivo do escopo
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {project.attachment_path.split('/').pop()}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <a
+                      href={`http://localhost:8000${project.attachment_path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0, textDecoration: 'none' }}
+                    >
+                      <ExternalLink size={14} /> Visualizar
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Cronograma */}
+          <div className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="card-header">
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Calendar size={16} style={{ color: 'var(--accent)' }} /> Cronograma
+              </h2>
+            </div>
+            {(!project.kt_date && !project.test_date) ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: '1rem 0.5rem', color: 'var(--text-muted)', textAlign: 'center', gap: '0.4rem', flex: 1
+              }}>
+                <Calendar size={26} style={{ opacity: 0.4 }} />
+                <p style={{ margin: 0, fontSize: '0.82rem' }}>Nenhuma data definida</p>
+                {canEdit() && (
+                  <button className="btn btn-ghost btn-sm" onClick={startEditing} style={{ fontSize: '0.78rem', marginTop: '0.25rem' }}>
+                    <Edit3 size={12} /> Adicionar datas
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <DateChip label="Data de KT" icon={GraduationCap} value={project.kt_date} style={getDateProximityStyle(project.kt_date)} formatDateTime={formatDateTime} />
+                <DateChip label="Data de Testes" icon={TestTube2} value={project.test_date} style={getDateProximityStyle(project.test_date)} formatDateTime={formatDateTime} />
+                {allSprintsPassed && (
+                  <div style={{
+                    fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center',
+                    fontStyle: 'italic', marginTop: '0.1rem'
+                  }}>
+                    Projeto concluído — cores desativadas
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -888,6 +995,24 @@ export default function ProjectDetailPage() {
                     {getOptions('client').map(p => <option key={p.id} value={p.value}>{p.value}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="form-label" style={{ marginBottom: '0.25rem', display: 'block' }}>Data de KT</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input"
+                    value={editForm.kt_date || ''}
+                    onChange={e => setEditForm({...editForm, kt_date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ marginBottom: '0.25rem', display: 'block' }}>Data de Testes</label>
+                  <input
+                    type="datetime-local"
+                    className="form-input"
+                    value={editForm.test_date || ''}
+                    onChange={e => setEditForm({...editForm, test_date: e.target.value})}
+                  />
+                </div>
               </div>
               <div>
                 <label className="form-label" style={{ marginBottom: '0.25rem', display: 'block' }}>Resumo do Escopo</label>
@@ -930,6 +1055,48 @@ export default function ProjectDetailPage() {
           <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{toast.message}</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function DateChip({ label, icon, value, style, formatDateTime }) {
+  const IconComp = icon;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '0.6rem',
+      padding: '0.55rem 0.7rem', borderRadius: '8px',
+      background: 'var(--bg-tertiary)', border: '1px solid var(--border)'
+    }}>
+      <IconComp size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+          {label}
+        </div>
+        {value ? (
+          <div
+            title={style ? style.label : ''}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+              marginTop: '0.2rem',
+              padding: '0.2rem 0.55rem',
+              borderRadius: '999px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              background: style ? style.bg : 'transparent',
+              color: style ? style.color : 'var(--text-primary)',
+              border: style ? `1px solid ${style.border}` : '1px solid var(--border)',
+              boxShadow: style && style.glow ? style.glow : 'none',
+              transition: 'box-shadow 0.3s ease'
+            }}
+          >
+            {formatDateTime(value)}
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '0.2rem' }}>
+            Não definida
+          </div>
+        )}
+      </div>
     </div>
   );
 }
