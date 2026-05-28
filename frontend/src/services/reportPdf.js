@@ -34,35 +34,27 @@ const STATUS_LABELS = {
   pending: 'Pendente',
 };
 
-async function loadImageAsDataUrl(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-}
-
-function getImageType(dataUrl) {
-  if (dataUrl.startsWith('data:image/png')) return 'PNG';
-  if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) return 'JPEG';
-  if (dataUrl.startsWith('data:image/gif')) return 'GIF';
-  return 'PNG';
-}
-
-function getImageDimensions(dataUrl) {
+async function loadImage(url) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve({ w: img.width, h: img.height });
-    img.onerror = () => resolve({ w: 0, h: 0 });
-    img.src = dataUrl;
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        resolve({ dataUrl: canvas.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight });
+      } catch (err) {
+        console.warn('PDF: falha ao converter imagem em data URL', url, err);
+        resolve(null);
+      }
+    };
+    img.onerror = () => {
+      console.warn('PDF: falha ao carregar imagem', url);
+      resolve(null);
+    };
+    img.src = url;
   });
 }
 
@@ -355,25 +347,21 @@ export async function generateProjectPdf(project, sprints, bugs = []) {
         // Image
         if (step.image_path) {
           const imgUrl = `${PYTHON_HOST}${step.image_path}`;
-          const dataUrl = await loadImageAsDataUrl(imgUrl);
-          if (dataUrl) {
-            const imgType = getImageType(dataUrl);
-            const dims = await getImageDimensions(dataUrl);
-            if (dims.w > 0) {
-              const maxW = CONTENT_W - 16;
-              const maxH = 70;
-              const ratio = Math.min(maxW / dims.w, maxH / dims.h, 1);
-              const imgW = dims.w * ratio;
-              const imgH = dims.h * ratio;
-              checkPageBreak(imgH + 8);
+          const loaded = await loadImage(imgUrl);
+          if (loaded && loaded.w > 0) {
+            const maxW = CONTENT_W - 16;
+            const maxH = 70;
+            const ratio = Math.min(maxW / loaded.w, maxH / loaded.h, 1);
+            const imgW = loaded.w * ratio;
+            const imgH = loaded.h * ratio;
+            checkPageBreak(imgH + 8);
 
-              // Image border box
-              doc.setDrawColor(...COLORS.light);
-              doc.setLineWidth(0.3);
-              doc.roundedRect(MARGIN + 12, y, imgW + 4, imgH + 4, 2, 2, 'S');
-              doc.addImage(dataUrl, imgType, MARGIN + 14, y + 2, imgW, imgH);
-              y += imgH + 10;
-            }
+            // Image border box
+            doc.setDrawColor(...COLORS.light);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(MARGIN + 12, y, imgW + 4, imgH + 4, 2, 2, 'S');
+            doc.addImage(loaded.dataUrl, 'PNG', MARGIN + 14, y + 2, imgW, imgH);
+            y += imgH + 10;
           }
         }
 
@@ -418,24 +406,20 @@ export async function generateProjectPdf(project, sprints, bugs = []) {
 
         if (bug.evidence_url) {
           const imgUrl = `${PYTHON_HOST}${bug.evidence_url}`;
-          const dataUrl = await loadImageAsDataUrl(imgUrl);
-          if (dataUrl) {
-            const imgType = getImageType(dataUrl);
-            const dims = await getImageDimensions(dataUrl);
-            if (dims.w > 0) {
-              const maxW = CONTENT_W - 24;
-              const maxH = 60;
-              const ratio = Math.min(maxW / dims.w, maxH / dims.h, 1);
-              const imgW = dims.w * ratio;
-              const imgH = dims.h * ratio;
-              checkPageBreak(imgH + 10);
-              
-              doc.setDrawColor(200, 200, 200);
-              doc.setLineWidth(0.3);
-              doc.roundedRect(MARGIN + 12, y, imgW + 2, imgH + 2, 1, 1, 'S');
-              doc.addImage(dataUrl, imgType, MARGIN + 13, y + 1, imgW, imgH);
-              y += imgH + 6;
-            }
+          const loaded = await loadImage(imgUrl);
+          if (loaded && loaded.w > 0) {
+            const maxW = CONTENT_W - 24;
+            const maxH = 60;
+            const ratio = Math.min(maxW / loaded.w, maxH / loaded.h, 1);
+            const imgW = loaded.w * ratio;
+            const imgH = loaded.h * ratio;
+            checkPageBreak(imgH + 10);
+
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(MARGIN + 12, y, imgW + 2, imgH + 2, 1, 1, 'S');
+            doc.addImage(loaded.dataUrl, 'PNG', MARGIN + 13, y + 1, imgW, imgH);
+            y += imgH + 6;
           }
         }
         y += 4;

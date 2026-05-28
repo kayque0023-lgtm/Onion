@@ -124,7 +124,7 @@ router.put('/steps/:id', (req, res) => {
     if (!step) return res.status(404).json({ error: 'Step não encontrado' });
 
     const { description, expected_result, actual_result, status, image_path } = req.body;
-    
+
     const updateDesc = description !== undefined ? description : step.description;
     const updateExpected = expected_result !== undefined ? expected_result : step.expected_result;
     const updateActual = actual_result !== undefined ? actual_result : step.actual_result;
@@ -132,7 +132,7 @@ router.put('/steps/:id', (req, res) => {
     const updateImage = image_path !== undefined ? image_path : step.image_path;
 
     runSql(`
-      UPDATE steps SET 
+      UPDATE steps SET
         description = ?,
         expected_result = ?,
         actual_result = ?,
