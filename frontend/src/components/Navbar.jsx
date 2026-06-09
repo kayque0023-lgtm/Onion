@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Home, FolderPlus, Folders, LogOut, Sun, Moon, Bug, Users, ShieldCheck, Eye, Pencil, Settings, LayoutGrid } from 'lucide-react';
+import { Home, FolderPlus, Folders, LogOut, Sun, Moon, Bug, Users, ShieldCheck, Eye, Pencil, Settings, LayoutGrid, ChevronDown, Timer, ClipboardList, SlidersHorizontal } from 'lucide-react';
 import OnionLabLogo from './OnionLabLogo';
 import UserSettingsModal from './UserSettingsModal';
 
@@ -9,7 +9,7 @@ const ROLE_LABELS = { admin: 'Administrador', editor: 'Editor', viewer: 'Visuali
 const ROLE_ICONS = { admin: ShieldCheck, editor: Pencil, viewer: Eye };
 
 export default function Navbar() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
@@ -27,13 +27,32 @@ export default function Navbar() {
     navigate('/login');
   };
 
+  const canCreateProject = user && user.role !== 'viewer';
+  const isAdminUser = user?.role === 'admin';
+
   const links = [
     { path: '/', label: 'Dashboard', icon: Home },
-    ...(!user || user.role !== 'viewer' ? [{ path: '/projects/new', label: 'Novo Projeto', icon: FolderPlus }] : []),
-    { path: '/projects', label: 'Projetos', icon: Folders },
-    { path: '/bugs', label: 'Bugs', icon: Bug },
-    { path: '/users', label: 'Usuários', icon: Users },
+    { path: '/runtime', label: 'Run time', icon: Timer },
+    {
+      path: '/projects',
+      label: 'Projetos',
+      icon: Folders,
+      submenu: canCreateProject ? [
+        { path: '/projects/new', label: 'Novo Projeto', icon: FolderPlus },
+      ] : [],
+    },
     { path: '/priority-map', label: 'Mapa de Prioridades', icon: LayoutGrid },
+    { path: '/bugs', label: 'Bugs', icon: Bug },
+    {
+      path: '/users',
+      label: 'Usuários',
+      icon: Users,
+      submenu: isAdminUser ? [
+        { path: '/users', label: 'Usuários', icon: Users },
+        { path: '/users/requests', label: 'Pedidos', icon: ClipboardList },
+        { path: '/users/parameters', label: 'Parâmetros', icon: SlidersHorizontal },
+      ] : [],
+    },
   ];
 
   const RoleIcon = ROLE_ICONS[user?.role] || Eye;
@@ -49,16 +68,37 @@ export default function Navbar() {
       </Link>
 
       <div className="navbar-links">
-        {links.map(link => (
-          <Link
-            key={link.path}
-            to={link.path}
-            className={`navbar-link ${location.pathname === link.path ? 'active' : ''}`}
-          >
-            <link.icon size={16} />
-            {link.label}
-          </Link>
-        ))}
+        {links.map(link => {
+          const hasSubmenu = link.submenu && link.submenu.length > 0;
+          const isActive = location.pathname === link.path
+            || (hasSubmenu && link.submenu.some(s => s.path === location.pathname));
+          return (
+            <div key={link.path} className={`navbar-item ${hasSubmenu ? 'has-submenu' : ''}`}>
+              <Link
+                to={link.path}
+                className={`navbar-link ${isActive ? 'active' : ''}`}
+              >
+                <link.icon size={16} />
+                {link.label}
+                {hasSubmenu && <ChevronDown size={13} style={{ opacity: 0.7 }} />}
+              </Link>
+              {hasSubmenu && (
+                <div className="navbar-submenu">
+                  {link.submenu.map(sub => (
+                    <Link
+                      key={sub.path}
+                      to={sub.path}
+                      className={`navbar-submenu-link ${location.pathname === sub.path ? 'active' : ''}`}
+                    >
+                      <sub.icon size={14} />
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="navbar-actions">

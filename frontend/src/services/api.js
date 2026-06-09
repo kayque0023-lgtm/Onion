@@ -96,6 +96,16 @@ export const analyticsAPI = {
   project: (projectId) => PYTHON_API.get(`/analytics/project/${projectId}`),
 };
 
+// Time sessions (Run time)
+export const timeSessionsAPI = {
+  create: (data) => NODE_API.post('/time-sessions', data),
+  delete: (id) => NODE_API.delete(`/time-sessions/${id}`),
+  today: () => NODE_API.get('/time-sessions/today'),
+  byDate: (date) => NODE_API.get('/time-sessions/by-date', { params: { date } }),
+  totals: () => NODE_API.get('/time-sessions/totals'),
+  forProject: (projectId) => NODE_API.get(`/time-sessions/project/${projectId}`),
+};
+
 // Uploads (Python API)
 export const uploadsAPI = {
   uploadScope: (file) => {

@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TimerProvider } from './context/TimerContext';
 import { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
+import FloatingTimer from './components/FloatingTimer';
 import Particles from './components/Particles';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -10,7 +12,10 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import BugsPage from './pages/BugsPage';
 import UsersPage from './pages/UsersPage';
+import RequestsPage from './pages/RequestsPage';
+import ParametersPage from './pages/ParametersPage';
 import PriorityMapPage from './pages/PriorityMapPage';
+import RuntimePage from './pages/RuntimePage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -51,6 +56,7 @@ function ProtectedRoute({ children }) {
       <main className="main-content" style={{ position: 'relative', zIndex: 1 }}>
         {children}
       </main>
+      <FloatingTimer />
     </div>
   );
 }
@@ -73,6 +79,7 @@ function PublicRoute({ children }) {
 function App() {
   return (
     <AuthProvider>
+      <TimerProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
@@ -82,10 +89,14 @@ function App() {
           <Route path="/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
           <Route path="/bugs" element={<ProtectedRoute><BugsPage /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+          <Route path="/users/requests" element={<ProtectedRoute><AdminRoute><RequestsPage /></AdminRoute></ProtectedRoute>} />
+          <Route path="/users/parameters" element={<ProtectedRoute><AdminRoute><ParametersPage /></AdminRoute></ProtectedRoute>} />
           <Route path="/priority-map" element={<ProtectedRoute><PriorityMapPage /></ProtectedRoute>} />
+          <Route path="/runtime" element={<ProtectedRoute><RuntimePage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </TimerProvider>
     </AuthProvider>
   );
 }

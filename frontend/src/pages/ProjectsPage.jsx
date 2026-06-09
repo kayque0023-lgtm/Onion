@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectsAPI, parametersAPI } from '../services/api';
-import { FolderPlus, Search, Calendar, Hash, FlaskConical, Code2, UserCircle, ClipboardList, Folder, Filter, X } from 'lucide-react';
+import { FolderPlus, Search, Calendar, Hash, FlaskConical, Code2, UserCircle, ClipboardList, Folder, Filter, X, Timer } from 'lucide-react';
+import { useTimer, formatDurationShort } from '../context/TimerContext';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
@@ -18,10 +19,13 @@ export default function ProjectsPage() {
 
   const [parameters, setParameters] = useState([]);
 
+  const { projectTotals, refreshTotals } = useTimer();
+
   useEffect(() => {
     loadProjects();
     loadParameters();
-  }, []);
+    refreshTotals();
+  }, [refreshTotals]);
 
   const loadParameters = async () => {
     try {
@@ -181,6 +185,11 @@ export default function ProjectsPage() {
                     <Calendar size={12} /> {formatDate(project.created_at)}
                   </span>
                   <span className="project-meta-item"><ClipboardList size={12} /> {project.sprint_count || 0} test cases</span>
+                  {projectTotals[project.id] > 0 && (
+                    <span className="project-meta-item" title="Tempo total registrado neste projeto" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                      <Timer size={12} /> {formatDurationShort(projectTotals[project.id])}
+                    </span>
+                  )}
                 </div>
                 {total > 0 && (
                   <div className="project-stats-bar">

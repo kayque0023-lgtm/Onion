@@ -152,6 +152,18 @@ async function initializeDatabase() {
     )
   `);
 
+  database.run(`
+    CREATE TABLE IF NOT EXISTS time_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+      started_at DATETIME NOT NULL,
+      ended_at DATETIME NOT NULL,
+      duration_seconds INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Default parameters if empty
   const paramCountResult = database.exec('SELECT COUNT(*) as count FROM parameters');
   const paramCount = paramCountResult[0]?.values[0][0] || 0;

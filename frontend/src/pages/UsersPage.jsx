@@ -1,52 +1,24 @@
 import { useState, useEffect } from 'react';
-import { usersAPI, parametersAPI } from '../services/api';
+import { usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Users, ClipboardList, ShieldCheck, Pencil, Eye, CheckCircle, XCircle, Clock, Search, X, Send, AlertTriangle, Lock, Settings, Plus, Trash2 } from 'lucide-react';
+import { Users, Pencil, Eye, CheckCircle, XCircle, Clock, Search, X, Send, Lock } from 'lucide-react';
 
 const ROLE_LABELS = { admin: 'Administrador', editor: 'Editor', viewer: 'Visualização' };
 const ROLE_COLORS = { admin: '#22c55e', editor: '#3b82f6', viewer: '#8b5cf6' };
-const STATUS_COLORS = { pending: '#f59e0b', approved: '#22c55e', rejected: '#ef4444' };
-const STATUS_LABELS = { pending: 'Pendente', approved: 'Aprovado', rejected: 'Rejeitado' };
 
 export default function UsersPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
-  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-
-  // Parameters
-  const [parameters, setParameters] = useState([]);
-  const [newParamCategory, setNewParamCategory] = useState('developer');
-  const [newParamValue, setNewParamValue] = useState('');
-  const [paramSearch, setParamSearch] = useState('');
-  const [paramFilters, setParamFilters] = useState({ client: true, developer: true, qa: true, manager: true });
-
-  // Role change confirm modal
   const [confirmModal, setConfirmModal] = useState(null);
-
-  // Reject modal
-  const [rejectModal, setRejectModal] = useState(null);
-  const [rejectReason, setRejectReason] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  // Viewer request state
+  // Viewer state
   const [myRequest, setMyRequest] = useState(null);
   const [justification, setJustification] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Justification expand
-  const [expandedJustification, setExpandedJustification] = useState(null);
-
-  // Toast Notification
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   useEffect(() => { loadData(); }, [user]);
 
@@ -54,13 +26,11 @@ export default function UsersPage() {
     setLoading(true);
     try {
       if (user?.role === 'admin' || user?.role === 'editor') {
-        const [usersRes, reqRes, paramRes] = await Promise.all([usersAPI.list(), usersAPI.listRequests(), parametersAPI.list()]);
-        setUsers(usersRes.data.users);
-        setRequests(reqRes.data.requests);
-        setParameters(paramRes.data.parameters);
+        const res = await usersAPI.list();
+        setUsers(res.data.users);
       } else if (user?.role === 'viewer') {
-        const reqRes = await usersAPI.myRequest();
-        setMyRequest(reqRes.data.request);
+        const res = await usersAPI.myRequest();
+        setMyRequest(res.data.request);
       }
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
@@ -97,71 +67,10 @@ export default function UsersPage() {
     }
   };
 
-  const handleApprove = async (requestId) => {
-    setProcessing(true);
-    try {
-      await usersAPI.approveRequest(requestId);
-      await loadData();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao aprovar.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!rejectReason.trim() || rejectReason.trim().length < 10) return alert('Motivo deve ter no mínimo 10 caracteres.');
-    setProcessing(true);
-    try {
-      await usersAPI.rejectRequest(rejectModal.requestId, rejectReason.trim());
-      setRejectModal(null);
-      setRejectReason('');
-      await loadData();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao rejeitar.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleAddParam = async () => {
-    if (!newParamValue.trim()) return;
-    setProcessing(true);
-    try {
-      await parametersAPI.create({ category: newParamCategory, value: newParamValue.trim() });
-      setNewParamValue('');
-      await loadData();
-      showToast('Opção cadastrada com sucesso!', 'success');
-    } catch (err) {
-      showToast(err.response?.data?.error || 'Erro ao adicionar parâmetro.', 'error');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleDeleteParam = async (id) => {
-    if (!window.confirm('Tem certeza que deseja remover este parâmetro? Ele continuará visível em projetos antigos que já o utilizam.')) return;
-    try {
-      await parametersAPI.delete(id);
-      await loadData();
-      showToast('Opção removida com sucesso!', 'success');
-    } catch (err) {
-      showToast(err.response?.data?.error || 'Erro ao remover parâmetro.', 'error');
-    }
-  };
-
-  const pendingCount = requests.filter(r => r.status === 'pending').length;
-
   const filteredUsers = users.filter(u => {
     const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
     const matchRole = roleFilter === 'all' || u.role === roleFilter;
     return matchSearch && matchRole;
-  });
-
-  const filteredParameters = parameters.filter(p => {
-    if (!paramFilters[p.category]) return false;
-    if (paramSearch && !p.value.toLowerCase().includes(paramSearch.toLowerCase())) return false;
-    return true;
   });
 
   if (loading) return <div className="loading-container"><div className="spinner" /></div>;
@@ -231,7 +140,6 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Info card */}
         <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
           <div className="card-header">
             <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -267,7 +175,6 @@ export default function UsersPage() {
               Você está no perfil <strong>Visualização</strong>, que permite apenas leitura. Para criar, editar ou excluir projetos, test cases e bugs, você precisa solicitar o perfil de <strong>Editor</strong> a um administrador.
             </p>
 
-            {/* Status feedback */}
             {isPending && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -305,7 +212,6 @@ export default function UsersPage() {
               </div>
             )}
 
-            {/* Form */}
             {!isPending && !isApproved && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <label className="form-label" style={{ marginBottom: 0 }}>
@@ -338,6 +244,7 @@ export default function UsersPage() {
     );
   }
 
+  // ── ADMIN VIEW ────────────────────────────────────────────────────────────
   return (
     <div className="fade-in">
       <div className="page-header">
@@ -347,294 +254,89 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid var(--border)', marginBottom: '1.5rem' }}>
-        {[
-          { key: 'users', label: 'Usuários', icon: Users },
-          { key: 'requests', label: 'Pedidos', icon: ClipboardList, badge: pendingCount },
-          { key: 'parameters', label: 'Parâmetros', icon: Settings }
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.6rem 1.25rem',
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '0.9rem', fontWeight: activeTab === tab.key ? 700 : 400,
-              color: activeTab === tab.key ? 'var(--accent)' : 'var(--text-secondary)',
-              borderBottom: activeTab === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
-              marginBottom: '-2px', transition: 'all 0.15s',
-            }}
-          >
-            <tab.icon size={15} />
-            {tab.label}
-            {tab.badge > 0 && (
-              <span style={{
-                background: '#ef4444', color: '#fff', borderRadius: '99px',
-                fontSize: '0.7rem', fontWeight: 700, padding: '0 0.45rem', lineHeight: '1.5',
-              }}>{tab.badge}</span>
-            )}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
+          <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input className="form-input" style={{ paddingLeft: '2.2rem' }} placeholder="Buscar por nome ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <select className="form-select" style={{ width: 'auto' }} value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
+          <option value="all">Todos os perfis</option>
+          <option value="admin">Administrador</option>
+          <option value="editor">Editor</option>
+          <option value="viewer">Visualização</option>
+        </select>
       </div>
 
-      {/* ── ABA USUÁRIOS ── */}
-      {activeTab === 'users' && (
-        <>
-          {/* Filtros */}
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
-              <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input className="form-input" style={{ paddingLeft: '2.2rem' }} placeholder="Buscar por nome ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <select className="form-select" style={{ width: 'auto' }} value={roleFilter} onChange={e => setRoleFilter(e.target.value)}>
-              <option value="all">Todos os perfis</option>
-              <option value="admin">Administrador</option>
-              <option value="editor">Editor</option>
-              <option value="viewer">Visualização</option>
-            </select>
-          </div>
-
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                  {['Nome', 'E-mail', 'Perfil', 'Desde', 'Ações'].map(col => (
-                    <th key={col} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((u, i) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
-                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{u.name}</td>
-                    <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{u.email}</td>
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <span style={{
-                        background: `${ROLE_COLORS[u.role]}22`, color: ROLE_COLORS[u.role],
-                        border: `1px solid ${ROLE_COLORS[u.role]}44`,
-                        borderRadius: '99px', padding: '0.2rem 0.65rem', fontSize: '0.75rem', fontWeight: 700,
-                      }}>
-                        {ROLE_LABELS[u.role] || u.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {new Date(u.created_at).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td style={{ padding: '0.6rem 1rem' }}>
-                      {/* Segmented role selector */}
-                      <div style={{
-                        display: 'inline-flex', borderRadius: '8px', overflow: 'hidden',
-                        border: '1px solid var(--border)', background: 'var(--bg-tertiary)'
-                      }}>
-                        {[
-                          { key: 'viewer', label: 'Visualização', color: '#8b5cf6' },
-                          { key: 'editor', label: 'Editor',       color: '#3b82f6' },
-                          { key: 'admin',  label: 'Admin',         color: '#22c55e' },
-                        ].map(({ key, label, color }) => {
-                          const isActive = u.role === key;
-                          return (
-                            <button
-                              key={key}
-                              title={isActive ? `Perfil atual: ${label}` : `Alterar para ${label}`}
-                              onClick={() => !isActive && setConfirmModal({ user: u, newRole: key })}
-                              style={{
-                                padding: '0.3rem 0.7rem',
-                                fontSize: '0.73rem', fontWeight: isActive ? 700 : 500,
-                                border: 'none', cursor: isActive ? 'default' : 'pointer',
-                                background: isActive ? color : 'transparent',
-                                color: isActive ? '#fff' : 'var(--text-muted)',
-                                transition: 'all 0.15s',
-                                borderRight: key !== 'admin' ? '1px solid var(--border)' : 'none',
-                                opacity: isActive ? 1 : 0.75,
-                              }}
-                              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = `${color}22`; }}
-                              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                            >
-                              {label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredUsers.length === 0 && (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhum usuário encontrado.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {/* ── ABA PEDIDOS ── */}
-      {activeTab === 'requests' && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                {['Solicitante', 'Data', 'Justificativa', 'Status', 'Ações'].map(col => (
-                  <th key={col} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((r, i) => (
-                <tr key={r.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.88rem' }}>{r.user_name}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{r.user_email}</div>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {new Date(r.created_at).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem', maxWidth: '280px' }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                      {expandedJustification === r.id ? r.justification : r.justification.slice(0, 80) + (r.justification.length > 80 ? '...' : '')}
-                    </span>
-                    {r.justification.length > 80 && (
-                      <button onClick={() => setExpandedJustification(expandedJustification === r.id ? null : r.id)}
-                        style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.78rem', marginLeft: '0.3rem' }}>
-                        {expandedJustification === r.id ? 'ver menos' : 'ver mais'}
-                      </button>
-                    )}
-                    {r.rejection_reason && (
-                      <div style={{ marginTop: '0.3rem', fontSize: '0.76rem', color: '#ef4444' }}>
-                        Motivo: {r.rejection_reason}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    <span style={{
-                      background: `${STATUS_COLORS[r.status]}22`, color: STATUS_COLORS[r.status],
-                      border: `1px solid ${STATUS_COLORS[r.status]}44`,
-                      borderRadius: '99px', padding: '0.2rem 0.65rem', fontSize: '0.75rem', fontWeight: 700,
-                    }}>
-                      {STATUS_LABELS[r.status] || r.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem 1rem' }}>
-                    {r.status === 'pending' && (
-                      <div style={{ display: 'flex', gap: '0.4rem' }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => handleApprove(r.id)} disabled={processing}>
-                          <CheckCircle size={13} /> Aprovar
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => { setRejectModal({ requestId: r.id }); setRejectReason(''); }} disabled={processing}>
-                          <XCircle size={13} /> Rejeitar
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
+              {['Nome', 'E-mail', 'Perfil', 'Desde', 'Ações'].map(col => (
+                <th key={col} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{col}</th>
               ))}
-              {requests.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhuma solicitação registrada.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* ── ABA PARAMETROS ── */}
-      {activeTab === 'parameters' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-          
-          {/* List Parameters */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div className="card-header" style={{ borderBottom: '1px solid var(--border)', padding: '1.5rem 1.5rem 1.25rem 1.5rem', margin: 0 }}>
-              <h2 className="card-title">Opções Cadastradas</h2>
-            </div>
-            
-            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-              <div style={{ position: 'relative', marginBottom: '1rem' }}>
-                <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input className="form-input" style={{ paddingLeft: '2.2rem', paddingRight: '0.75rem', paddingBottom: '0.6rem', paddingTop: '0.6rem', fontSize: '0.85rem' }} placeholder="Buscar parâmetro..." value={paramSearch} onChange={e => setParamSearch(e.target.value)} />
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 }}>
-                  <input type="checkbox" checked={paramFilters.client} onChange={e => setParamFilters({...paramFilters, client: e.target.checked})} /> Empresa Cliente
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 }}>
-                  <input type="checkbox" checked={paramFilters.developer} onChange={e => setParamFilters({...paramFilters, developer: e.target.checked})} /> Desenvolvedor(a)
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 }}>
-                  <input type="checkbox" checked={paramFilters.qa} onChange={e => setParamFilters({...paramFilters, qa: e.target.checked})} /> Analista QA
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 500 }}>
-                  <input type="checkbox" checked={paramFilters.manager} onChange={e => setParamFilters({...paramFilters, manager: e.target.checked})} /> Gestor
-                </label>
-              </div>
-            </div>
-
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-tertiary)' }}>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>CATEGORIA</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>VALOR</th>
-                  <th style={{ padding: '0.75rem 1rem', width: '50px' }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredParameters.map((p, i) => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
-                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, textTransform: 'capitalize' }}>
-                      {p.category === 'client' ? 'Cliente' : p.category === 'developer' ? 'Desenvolvedor' : p.category === 'qa' ? 'QA' : 'Gestor'}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem' }}>{p.value}</td>
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                      {user?.role === 'admin' && (
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => handleDeleteParam(p.id)} title="Excluir">
-                          <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.map((u, i) => (
+              <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}>
+                <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{u.name}</td>
+                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{u.email}</td>
+                <td style={{ padding: '0.75rem 1rem' }}>
+                  <span style={{
+                    background: `${ROLE_COLORS[u.role]}22`, color: ROLE_COLORS[u.role],
+                    border: `1px solid ${ROLE_COLORS[u.role]}44`,
+                    borderRadius: '99px', padding: '0.2rem 0.65rem', fontSize: '0.75rem', fontWeight: 700,
+                  }}>
+                    {ROLE_LABELS[u.role] || u.role}
+                  </span>
+                </td>
+                <td style={{ padding: '0.75rem 1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                </td>
+                <td style={{ padding: '0.6rem 1rem' }}>
+                  <div style={{
+                    display: 'inline-flex', borderRadius: '8px', overflow: 'hidden',
+                    border: '1px solid var(--border)', background: 'var(--bg-tertiary)'
+                  }}>
+                    {[
+                      { key: 'viewer', label: 'Visualização', color: '#8b5cf6' },
+                      { key: 'editor', label: 'Editor',       color: '#3b82f6' },
+                      { key: 'admin',  label: 'Admin',         color: '#22c55e' },
+                    ].map(({ key, label, color }) => {
+                      const isActive = u.role === key;
+                      return (
+                        <button
+                          key={key}
+                          title={isActive ? `Perfil atual: ${label}` : `Alterar para ${label}`}
+                          onClick={() => !isActive && setConfirmModal({ user: u, newRole: key })}
+                          style={{
+                            padding: '0.3rem 0.7rem',
+                            fontSize: '0.73rem', fontWeight: isActive ? 700 : 500,
+                            border: 'none', cursor: isActive ? 'default' : 'pointer',
+                            background: isActive ? color : 'transparent',
+                            color: isActive ? '#fff' : 'var(--text-muted)',
+                            transition: 'all 0.15s',
+                            borderRight: key !== 'admin' ? '1px solid var(--border)' : 'none',
+                            opacity: isActive ? 1 : 0.75,
+                          }}
+                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = `${color}22`; }}
+                          onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {label}
                         </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {filteredParameters.length === 0 && (
-                  <tr><td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhum parâmetro encontrado.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      );
+                    })}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filteredUsers.length === 0 && (
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Nenhum usuário encontrado.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          {/* Add Parameter */}
-          {user?.role === 'admin' && (
-            <div className="card" style={{ alignSelf: 'start' }}>
-              <div className="card-header">
-                <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Plus size={16} style={{ color: 'var(--accent)' }} /> Adicionar Nova Opção
-                </h2>
-              </div>
-              <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label className="form-label">Categoria</label>
-                  <select className="form-input" value={newParamCategory} onChange={e => setNewParamCategory(e.target.value)}>
-                    <option value="developer">Desenvolvedor</option>
-                    <option value="qa">Analista QA</option>
-                    <option value="manager">Gestor</option>
-                    <option value="client">Empresa Cliente</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Nome / Valor</label>
-                  <input className="form-input" placeholder="Ex: João Silva, Apple Inc." value={newParamValue} onChange={e => setNewParamValue(e.target.value)} />
-                </div>
-                <button className="btn btn-primary" onClick={handleAddParam} disabled={processing || !newParamValue.trim()}>
-                  {processing ? 'Adicionando...' : 'Adicionar Parâmetro'}
-                </button>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: 1.5 }}>
-                  Estas opções aparecerão nos menus de seleção ao criar ou editar projetos e também nos filtros de busca da plataforma.
-                </p>
-              </div>
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* Modal confirmar alteração de perfil */}
       {confirmModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '1rem' }}>
           <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
@@ -650,40 +352,6 @@ export default function UsersPage() {
               <button className="btn btn-primary" onClick={handleChangeRole} disabled={processing}>{processing ? 'Salvando...' : 'Confirmar'}</button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Modal rejeitar */}
-      {rejectModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '1rem' }}>
-          <div className="card" style={{ maxWidth: '440px', width: '100%' }}>
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 className="card-title">Rejeitar Solicitação</h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setRejectModal(null)}><X size={18} /></button>
-            </div>
-            <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <label className="form-label">Motivo da rejeição <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(mín. 10 caracteres)</span></label>
-              <textarea className="form-input" style={{ minHeight: '90px', resize: 'vertical' }} placeholder="Informe o motivo..." value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                <button className="btn btn-secondary" onClick={() => setRejectModal(null)}>Cancelar</button>
-                <button className="btn btn-danger" onClick={handleReject} disabled={processing || rejectReason.trim().length < 10}>{processing ? 'Rejeitando...' : 'Confirmar Rejeição'}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast Notification */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: '24px', right: '24px', zIndex: 9999,
-          background: toast.type === 'success' ? '#10b981' : '#ef4444',
-          color: 'white', padding: '0.8rem 1.25rem', borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', gap: '0.5rem',
-          transition: 'all 0.3s ease', transform: 'translateX(0)', opacity: 1
-        }}>
-          {toast.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
-          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{toast.message}</span>
         </div>
       )}
     </div>

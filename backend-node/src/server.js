@@ -10,6 +10,7 @@ const commentRoutes = require('./routes/comments');
 const bugsRoutes = require('./routes/bugs');
 const usersRoutes = require('./routes/users');
 const parametersRoutes = require('./routes/parameters');
+const timeSessionsRoutes = require('./routes/timeSessions');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -51,6 +52,7 @@ async function startServer() {
   app.use('/api/bugs', bugsRoutes);
   app.use('/api/users', usersRoutes);
   app.use('/api/parameters', parametersRoutes);
+  app.use('/api/time-sessions', timeSessionsRoutes);
 
   // Error handler
   app.use((err, req, res, next) => {
